@@ -1,0 +1,1 @@
+import{j as t,B as n,L as o}from"./index-DFuspNPw.js";const s=()=>t.jsxs("div",{className:"container mx-auto px-4 py-20 text-center",children:[t.jsx("h1",{className:"text-3xl font-bold tracking-tight",children:"Report not found"}),t.jsx(n,{asChild:!0,className:"mt-4",children:t.jsx(o,{to:"/buy",children:"Back to inventory"})})]});export{s as notFoundComponent};
