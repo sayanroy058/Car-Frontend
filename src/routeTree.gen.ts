@@ -9,137 +9,42 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WishlistRouteImport } from './routes/wishlist'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as SupportRouteImport } from './routes/support'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as SellRouteImport } from './routes/sell'
-import { Route as SavedSearchesRouteImport } from './routes/saved-searches'
-import { Route as RegisterRouteImport } from './routes/register'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
-import { Route as FinanceRouteImport } from './routes/finance'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ContactRouteImport } from './routes/contact'
-import { Route as CompareRouteImport } from './routes/compare'
-import { Route as AgentRegisterRouteImport } from './routes/agent-register'
-import { Route as AgentLoginRouteImport } from './routes/agent-login'
-import { Route as AdminLoginRouteImport } from './routes/admin-login'
-import { Route as AdminRouteImport } from './routes/admin'
-import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ChatIndexRouteImport } from './routes/chat.index'
-import { Route as BuyIndexRouteImport } from './routes/buy.index'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as AdminRouteImport } from './routes/admin'
+import { Route as AdminLoginRouteImport } from './routes/admin-login'
+import { Route as AgentLoginRouteImport } from './routes/agent-login'
+import { Route as AgentRegisterRouteImport } from './routes/agent-register'
+import { Route as CompareRouteImport } from './routes/compare'
+import { Route as ContactRouteImport } from './routes/contact'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as FinanceRouteImport } from './routes/finance'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as SavedSearchesRouteImport } from './routes/saved-searches'
+import { Route as SellRouteImport } from './routes/sell'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SupportRouteImport } from './routes/support'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WishlistRouteImport } from './routes/wishlist'
 import { Route as AgentIndexRouteImport } from './routes/agent.index'
-import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
-import { Route as ChatIdRouteImport } from './routes/chat.$id'
-import { Route as BuyIdRouteImport } from './routes/buy.$id'
 import { Route as AgentSellRouteImport } from './routes/agent.sell'
-import { Route as BuyIdReportRouteImport } from './routes/buy.$id.report'
-import { Route as BuyIdInspectionRouteImport } from './routes/buy.$id.inspection'
+import { Route as BuyIndexRouteImport } from './routes/buy.index'
+import { Route as BuyIdRouteImport } from './routes/buy.$id'
+import { Route as ChatIndexRouteImport } from './routes/chat.index'
+import { Route as ChatIdRouteImport } from './routes/chat.$id'
+import { Route as CheckoutIdRouteImport } from './routes/checkout.$id'
 import { Route as BuyIdDefectsRouteImport } from './routes/buy.$id.defects'
+import { Route as BuyIdInspectionRouteImport } from './routes/buy.$id.inspection'
+import { Route as BuyIdReportRouteImport } from './routes/buy.$id.report'
 
-const WishlistRoute = WishlistRouteImport.update({
-  id: '/wishlist',
-  path: '/wishlist',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SupportRoute = SupportRouteImport.update({
-  id: '/support',
-  path: '/support',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SellRoute = SellRouteImport.update({
-  id: '/sell',
-  path: '/sell',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SavedSearchesRoute = SavedSearchesRouteImport.update({
-  id: '/saved-searches',
-  path: '/saved-searches',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RegisterRoute = RegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FinanceRoute = FinanceRouteImport.update({
-  id: '/finance',
-  path: '/finance',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContactRoute = ContactRouteImport.update({
-  id: '/contact',
-  path: '/contact',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CompareRoute = CompareRouteImport.update({
-  id: '/compare',
-  path: '/compare',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AgentRegisterRoute = AgentRegisterRouteImport.update({
-  id: '/agent-register',
-  path: '/agent-register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AgentLoginRoute = AgentLoginRouteImport.update({
-  id: '/agent-login',
-  path: '/agent-login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminLoginRoute = AdminLoginRouteImport.update({
-  id: '/admin-login',
-  path: '/admin-login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -147,19 +52,104 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChatIndexRoute = ChatIndexRouteImport.update({
-  id: '/chat/',
-  path: '/chat/',
+const AdminLoginRoute = AdminLoginRouteImport.update({
+  id: '/admin-login',
+  path: '/admin-login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BuyIndexRoute = BuyIndexRouteImport.update({
-  id: '/buy/',
-  path: '/buy/',
+const AgentLoginRoute = AgentLoginRouteImport.update({
+  id: '/agent-login',
+  path: '/agent-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentRegisterRoute = AgentRegisterRouteImport.update({
+  id: '/agent-register',
+  path: '/agent-register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareRoute = CompareRouteImport.update({
+  id: '/compare',
+  path: '/compare',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinanceRoute = FinanceRouteImport.update({
+  id: '/finance',
+  path: '/finance',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SavedSearchesRoute = SavedSearchesRouteImport.update({
+  id: '/saved-searches',
+  path: '/saved-searches',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SellRoute = SellRouteImport.update({
+  id: '/sell',
+  path: '/sell',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SupportRoute = SupportRouteImport.update({
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WishlistRoute = WishlistRouteImport.update({
+  id: '/wishlist',
+  path: '/wishlist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentIndexRoute = AgentIndexRouteImport.update({
@@ -167,14 +157,14 @@ const AgentIndexRoute = AgentIndexRouteImport.update({
   path: '/agent/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutIdRoute = CheckoutIdRouteImport.update({
-  id: '/checkout/$id',
-  path: '/checkout/$id',
+const AgentSellRoute = AgentSellRouteImport.update({
+  id: '/agent/sell',
+  path: '/agent/sell',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChatIdRoute = ChatIdRouteImport.update({
-  id: '/chat/$id',
-  path: '/chat/$id',
+const BuyIndexRoute = BuyIndexRouteImport.update({
+  id: '/buy/',
+  path: '/buy/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BuyIdRoute = BuyIdRouteImport.update({
@@ -182,14 +172,24 @@ const BuyIdRoute = BuyIdRouteImport.update({
   path: '/buy/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AgentSellRoute = AgentSellRouteImport.update({
-  id: '/agent/sell',
-  path: '/agent/sell',
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BuyIdReportRoute = BuyIdReportRouteImport.update({
-  id: '/report',
-  path: '/report',
+const ChatIdRoute = ChatIdRouteImport.update({
+  id: '/chat/$id',
+  path: '/chat/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutIdRoute = CheckoutIdRouteImport.update({
+  id: '/checkout/$id',
+  path: '/checkout/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuyIdDefectsRoute = BuyIdDefectsRouteImport.update({
+  id: '/defects',
+  path: '/defects',
   getParentRoute: () => BuyIdRoute,
 } as any)
 const BuyIdInspectionRoute = BuyIdInspectionRouteImport.update({
@@ -197,9 +197,9 @@ const BuyIdInspectionRoute = BuyIdInspectionRouteImport.update({
   path: '/inspection',
   getParentRoute: () => BuyIdRoute,
 } as any)
-const BuyIdDefectsRoute = BuyIdDefectsRouteImport.update({
-  id: '/defects',
-  path: '/defects',
+const BuyIdReportRoute = BuyIdReportRouteImport.update({
+  id: '/report',
+  path: '/report',
   getParentRoute: () => BuyIdRoute,
 } as any)
 
@@ -445,144 +445,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/wishlist': {
-      id: '/wishlist'
-      path: '/wishlist'
-      fullPath: '/wishlist'
-      preLoaderRoute: typeof WishlistRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/support': {
-      id: '/support'
-      path: '/support'
-      fullPath: '/support'
-      preLoaderRoute: typeof SupportRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sell': {
-      id: '/sell'
-      path: '/sell'
-      fullPath: '/sell'
-      preLoaderRoute: typeof SellRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/saved-searches': {
-      id: '/saved-searches'
-      path: '/saved-searches'
-      fullPath: '/saved-searches'
-      preLoaderRoute: typeof SavedSearchesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/register': {
-      id: '/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/finance': {
-      id: '/finance'
-      path: '/finance'
-      fullPath: '/finance'
-      preLoaderRoute: typeof FinanceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contact': {
-      id: '/contact'
-      path: '/contact'
-      fullPath: '/contact'
-      preLoaderRoute: typeof ContactRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/compare': {
-      id: '/compare'
-      path: '/compare'
-      fullPath: '/compare'
-      preLoaderRoute: typeof CompareRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/agent-register': {
-      id: '/agent-register'
-      path: '/agent-register'
-      fullPath: '/agent-register'
-      preLoaderRoute: typeof AgentRegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/agent-login': {
-      id: '/agent-login'
-      path: '/agent-login'
-      fullPath: '/agent-login'
-      preLoaderRoute: typeof AgentLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin-login': {
-      id: '/admin-login'
-      path: '/admin-login'
-      fullPath: '/admin-login'
-      preLoaderRoute: typeof AdminLoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -592,25 +459,144 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/chat/': {
-      id: '/chat/'
-      path: '/chat'
-      fullPath: '/chat/'
-      preLoaderRoute: typeof ChatIndexRouteImport
+    '/admin-login': {
+      id: '/admin-login'
+      path: '/admin-login'
+      fullPath: '/admin-login'
+      preLoaderRoute: typeof AdminLoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/buy/': {
-      id: '/buy/'
-      path: '/buy'
-      fullPath: '/buy/'
-      preLoaderRoute: typeof BuyIndexRouteImport
+    '/agent-login': {
+      id: '/agent-login'
+      path: '/agent-login'
+      fullPath: '/agent-login'
+      preLoaderRoute: typeof AgentLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent-register': {
+      id: '/agent-register'
+      path: '/agent-register'
+      fullPath: '/agent-register'
+      preLoaderRoute: typeof AgentRegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare': {
+      id: '/compare'
+      path: '/compare'
+      fullPath: '/compare'
+      preLoaderRoute: typeof CompareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finance': {
+      id: '/finance'
+      path: '/finance'
+      fullPath: '/finance'
+      preLoaderRoute: typeof FinanceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/saved-searches': {
+      id: '/saved-searches'
+      path: '/saved-searches'
+      fullPath: '/saved-searches'
+      preLoaderRoute: typeof SavedSearchesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sell': {
+      id: '/sell'
+      path: '/sell'
+      fullPath: '/sell'
+      preLoaderRoute: typeof SellRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/support': {
+      id: '/support'
+      path: '/support'
+      fullPath: '/support'
+      preLoaderRoute: typeof SupportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wishlist': {
+      id: '/wishlist'
+      path: '/wishlist'
+      fullPath: '/wishlist'
+      preLoaderRoute: typeof WishlistRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agent/': {
@@ -620,18 +606,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AgentIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/checkout/$id': {
-      id: '/checkout/$id'
-      path: '/checkout/$id'
-      fullPath: '/checkout/$id'
-      preLoaderRoute: typeof CheckoutIdRouteImport
+    '/agent/sell': {
+      id: '/agent/sell'
+      path: '/agent/sell'
+      fullPath: '/agent/sell'
+      preLoaderRoute: typeof AgentSellRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/chat/$id': {
-      id: '/chat/$id'
-      path: '/chat/$id'
-      fullPath: '/chat/$id'
-      preLoaderRoute: typeof ChatIdRouteImport
+    '/buy/': {
+      id: '/buy/'
+      path: '/buy'
+      fullPath: '/buy/'
+      preLoaderRoute: typeof BuyIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/buy/$id': {
@@ -641,18 +627,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BuyIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/agent/sell': {
-      id: '/agent/sell'
-      path: '/agent/sell'
-      fullPath: '/agent/sell'
-      preLoaderRoute: typeof AgentSellRouteImport
+    '/chat/': {
+      id: '/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/buy/$id/report': {
-      id: '/buy/$id/report'
-      path: '/report'
-      fullPath: '/buy/$id/report'
-      preLoaderRoute: typeof BuyIdReportRouteImport
+    '/chat/$id': {
+      id: '/chat/$id'
+      path: '/chat/$id'
+      fullPath: '/chat/$id'
+      preLoaderRoute: typeof ChatIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/$id': {
+      id: '/checkout/$id'
+      path: '/checkout/$id'
+      fullPath: '/checkout/$id'
+      preLoaderRoute: typeof CheckoutIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/buy/$id/defects': {
+      id: '/buy/$id/defects'
+      path: '/defects'
+      fullPath: '/buy/$id/defects'
+      preLoaderRoute: typeof BuyIdDefectsRouteImport
       parentRoute: typeof BuyIdRoute
     }
     '/buy/$id/inspection': {
@@ -662,11 +662,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BuyIdInspectionRouteImport
       parentRoute: typeof BuyIdRoute
     }
-    '/buy/$id/defects': {
-      id: '/buy/$id/defects'
-      path: '/defects'
-      fullPath: '/buy/$id/defects'
-      preLoaderRoute: typeof BuyIdDefectsRouteImport
+    '/buy/$id/report': {
+      id: '/buy/$id/report'
+      path: '/report'
+      fullPath: '/buy/$id/report'
+      preLoaderRoute: typeof BuyIdReportRouteImport
       parentRoute: typeof BuyIdRoute
     }
   }
