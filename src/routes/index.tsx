@@ -21,7 +21,6 @@ import {
   Gauge,
   Calculator,
 } from "lucide-react";
-import heroCar from "@/assets/hero-car.jpg";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -215,30 +214,35 @@ function Landing() {
       {/* HERO                                                          */}
       {/* ============================================================ */}
       <section className="relative min-h-[92vh] overflow-hidden">
-        {/* Background image */}
-        <div className="absolute inset-0">
-          <img
-            src={heroCar}
-            alt=""
-            className="h-full w-full object-cover"
-            aria-hidden
-          />
-          <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-black/70 to-black/40" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
-        </div>
-
-        {/* Glow accents */}
+        {/* Background gradient — creamy */}
         <div
-          className="absolute -right-40 top-0 h-[42rem] w-[42rem] rounded-full blur-3xl"
-          style={{ background: "var(--gradient-glow)" }}
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, oklch(0.97 0.02 85) 0%, oklch(0.95 0.03 80) 50%, oklch(0.93 0.025 75) 100%)",
+          }}
         />
-        <div className="absolute inset-0 grid-bg opacity-20" />
+        <div
+          className="absolute -left-32 -top-32 h-[40rem] w-[40rem] rounded-full blur-3xl opacity-50"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 50%, oklch(0.82 0.07 70 / 0.4), transparent 70%)",
+          }}
+        />
+        <div
+          className="absolute -right-40 bottom-0 h-[42rem] w-[42rem] rounded-full blur-3xl opacity-40"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 50%, oklch(0.78 0.05 95 / 0.35), transparent 70%)",
+          }}
+        />
+        <div className="absolute inset-0 grid-bg opacity-[0.06]" />
 
         <div className="container relative z-10 mx-auto flex min-h-[92vh] flex-col justify-center px-4 py-20">
           <div className="grid items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
             {/* Left: copy + search */}
-            <div className="max-w-2xl text-white">
-              <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium backdrop-blur-md">
+            <div className="max-w-2xl text-foreground">
+              <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/60 px-4 py-1.5 text-xs font-medium backdrop-blur-md">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
@@ -249,22 +253,22 @@ function Landing() {
               <h1 className="animate-fade-in-up delay-100 mt-6 text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl lg:text-7xl">
                 The smartest way
                 <br />
-                to <span className="gradient-text">buy & sell</span>
+                to <span className="gradient-text">buy &amp; sell</span>
                 <br />
                 pre-owned cars.
               </h1>
 
-              <p className="animate-fade-in-up delay-200 mt-6 max-w-xl text-lg leading-relaxed text-white/75">
+              <p className="animate-fade-in-up delay-200 mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
                 Inspected, refurbished, and certified — with transparent pricing
                 and finance approvals in minutes. A premium experience from your
                 first click to your driveway.
               </p>
 
               {/* Search card */}
-              <div className="animate-fade-in-up delay-300 mt-8 rounded-2xl border border-white/15 bg-white/10 p-2 backdrop-blur-xl shadow-2xl">
+              <div className="animate-fade-in-up delay-300 mt-8 rounded-2xl border border-black/10 bg-white/70 p-2 backdrop-blur-xl shadow-2xl">
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
                   <Select value={brand || undefined} onValueChange={setBrand}>
-                    <SelectTrigger className="h-12 border-white/10 bg-white/5 text-white shadow-none">
+                    <SelectTrigger className="h-12 border-black/10 bg-white/80 text-foreground shadow-none">
                       <SelectValue placeholder="Any brand" />
                     </SelectTrigger>
                     <SelectContent>
@@ -276,7 +280,7 @@ function Landing() {
                     </SelectContent>
                   </Select>
                   <Select value={body || undefined} onValueChange={setBody}>
-                    <SelectTrigger className="h-12 border-white/10 bg-white/5 text-white shadow-none">
+                    <SelectTrigger className="h-12 border-black/10 bg-white/80 text-foreground shadow-none">
                       <SelectValue placeholder="Body type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -288,7 +292,7 @@ function Landing() {
                     </SelectContent>
                   </Select>
                   <Select value={budget || undefined} onValueChange={setBudget}>
-                    <SelectTrigger className="h-12 border-white/10 bg-white/5 text-white shadow-none">
+                    <SelectTrigger className="h-12 border-black/10 bg-white/80 text-foreground shadow-none">
                       <SelectValue placeholder="Budget" />
                     </SelectTrigger>
                     <SelectContent>
@@ -319,7 +323,7 @@ function Landing() {
                   asChild
                   size="lg"
                   variant="ghost"
-                  className="gap-1.5 border border-white/20 text-white hover:bg-white/10 hover:text-white"
+                  className="gap-1.5 border border-black/15 text-foreground hover:bg-black/5 hover:text-foreground"
                 >
                   <Link to="/sell">Sell your car</Link>
                 </Button>
@@ -328,7 +332,7 @@ function Landing() {
 
             {/* Right: floating featured card */}
             <div className="relative hidden lg:block">
-              <div className="animate-fade-in delay-300 animate-float overflow-hidden rounded-3xl border border-white/15 bg-white/10 backdrop-blur-xl shadow-2xl">
+              <div className="animate-fade-in delay-300 animate-float overflow-hidden rounded-3xl border border-black/10 bg-white/80 backdrop-blur-xl shadow-2xl">
                 {heroListing?.images?.[0] && (
                   <div className="relative aspect-[4/3] overflow-hidden">
                     <img
@@ -342,8 +346,8 @@ function Landing() {
                     </Badge>
                   </div>
                 )}
-                <div className="p-6 text-white">
-                  <div className="flex items-center gap-2 text-xs font-medium text-white/70">
+                <div className="p-6 text-foreground">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
                     <ShieldCheck className="h-4 w-4 text-success" />
                     200-point certified · 7-day returns
                   </div>
@@ -352,13 +356,13 @@ function Landing() {
                       ? `${heroListing.year} ${heroListing.brand} ${heroListing.model}`
                       : "2022 Tesla Model 3 LR"}
                   </div>
-                  <div className="mt-1 text-sm text-white/60">
+                  <div className="mt-1 text-sm text-muted-foreground">
                     {heroListing?.variant} ·{" "}
                     {heroListing?.kmDriven?.toLocaleString()} km
                   </div>
                   <div className="mt-5 flex items-end justify-between">
                     <div>
-                      <div className="text-[11px] uppercase tracking-wide text-white/50">
+                      <div className="text-[11px] uppercase tracking-wide text-muted-foreground/70">
                         Starting at
                       </div>
                       <div className="text-3xl font-extrabold text-accent">
@@ -404,10 +408,10 @@ function Landing() {
         </div>
 
         {/* Scroll hint */}
-        <div className="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-2 text-white/60 md:flex">
+        <div className="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 flex-col items-center gap-2 text-foreground/50 md:flex">
           <span className="text-[11px] uppercase tracking-[0.2em]">Scroll</span>
-          <div className="flex h-9 w-5 items-start justify-center rounded-full border border-white/30 p-1">
-            <div className="h-2 w-1 animate-bounce rounded-full bg-white/60" />
+          <div className="flex h-9 w-5 items-start justify-center rounded-full border border-foreground/30 p-1">
+            <div className="h-2 w-1 animate-bounce rounded-full bg-foreground/40" />
           </div>
         </div>
       </section>

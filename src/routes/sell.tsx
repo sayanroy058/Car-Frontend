@@ -35,7 +35,7 @@ import { Seo } from "@/components/site/Seo";
 import { useApp } from "@/lib/store";
 import { BRANDS, BODY_TYPES, FUEL_TYPES, OWNERSHIP, STATES, TRANSMISSIONS } from "@/lib/constants";
 import { sellSchema, type SellValues } from "@/lib/validations";
-import { uploadImages, createListing } from "@/lib/api";
+import { uploadImages, createListing, assetUrl } from "@/lib/api";
 import type { Listing } from "@/lib/types";
 
 export const Route = createFileRoute("/sell")({
@@ -166,9 +166,9 @@ function Sell() {
         imageUrls = await uploadImages(files);
       } else {
         imageUrls = [
-          "/uploads/fallback-0.jpg",
-          "/uploads/fallback-1.jpg",
-          "/uploads/fallback-2.jpg",
+          assetUrl("/uploads/fallback-0.jpg"),
+          assetUrl("/uploads/fallback-1.jpg"),
+          assetUrl("/uploads/fallback-2.jpg"),
         ];
       }
 

@@ -62,7 +62,7 @@ import { BRANDS, BODY_TYPES, FUEL_TYPES, OWNERSHIP, STATES, TRANSMISSIONS } from
 import { formatPrice, StatusBadge } from "@/components/site/CarCard";
 import { TableSkeleton } from "@/components/site/Skeletons";
 import { Seo } from "@/components/site/Seo";
-import { getListings, getTickets, uploadImages, createListing, patchListing } from "@/lib/api";
+import { getListings, getTickets, uploadImages, createListing, patchListing, assetUrl } from "@/lib/api";
 import { qk } from "@/lib/queries";
 import type { Listing, TicketStatus } from "@/lib/types";
 
@@ -1042,7 +1042,7 @@ function AddCarForm() {
       if (files.length > 0) {
         imageUrls = await uploadImages(files);
       } else {
-        imageUrls = ["/uploads/fallback-0.jpg", "/uploads/fallback-1.jpg", "/uploads/fallback-2.jpg"];
+        imageUrls = [assetUrl("/uploads/fallback-0.jpg"), assetUrl("/uploads/fallback-1.jpg"), assetUrl("/uploads/fallback-2.jpg")];
       }
 
       const listingData: Omit<Listing, "id" | "createdAt"> = {

@@ -14,7 +14,20 @@ import { getToken } from "./store";
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-const BASE = "/api";
+// Live backend API origin (hosted on Hostinger).
+export const API_ORIGIN = "https://khaki-walrus-529693.hostingersite.com";
+const BASE = `${API_ORIGIN}/api`;
+
+/**
+ * Resolve an asset path (e.g. "/uploads/foo.jpg") to an absolute URL against
+ * the live backend. Absolute URLs and data: URIs are returned unchanged.
+ */
+export function assetUrl(p?: string | null): string {
+  if (!p) return "";
+  if (/^(https?:)?\/\//i.test(p) || p.startsWith("data:")) return p;
+  if (p.startsWith("/")) return `${API_ORIGIN}${p}`;
+  return `${API_ORIGIN}/${p}`;
+}
 
 function authHeaders(): Record<string, string> {
   const token = getToken();
@@ -82,21 +95,29 @@ export async function apiUpdateProfile(
 // Listings
 // ---------------------------------------------------------------------------
 
+/** Resolve a listing's image paths to absolute URLs against the backend. */
+function withAbsoluteImages<T extends Listing>(listing: T): T {
+  if (listing?.images) {
+    listing.images = listing.images.map((img) => assetUrl(img));
+  }
+  return listing;
+}
+
 export async function getListings(): Promise<Listing[]> {
   const { listings } = await request<{ listings: Listing[] }>("/listings");
-  return listings;
+  return listings.map(withAbsoluteImages);
 }
 
 export async function getListing(id: string): Promise<Listing> {
   const { listing } = await request<{ listing: Listing }>(`/listings/${id}`);
-  return listing;
+  return withAbsoluteImages(listing);
 }
 
 export async function getSimilar(id: string): Promise<Listing[]> {
   const { listings } = await request<{ listings: Listing[] }>(
     `/listings/${id}/similar`,
   );
-  return listings;
+  return listings.map(withAbsoluteImages);
 }
 
 export interface SearchFilters {
@@ -142,7 +163,7 @@ export async function searchListings(
   const { listings } = await request<{ listings: Listing[] }>(
     `/listings/search?${params.toString()}`,
   );
-  return listings;
+  return listings.map(withAbsoluteImages);
 }
 
 // ---------------------------------------------------------------------------
@@ -431,7 +452,7 @@ export async function uploadImages(files: File[]): Promise<string[]> {
   }
 
   const { urls } = await res.json();
-  return urls as string[];
+  return (urls as string[]).map((u) => assetUrl(u));
 }
 
 // ---------------------------------------------------------------------------
@@ -445,7 +466,7 @@ export async function createListing(
     method: "POST",
     body: JSON.stringify(data),
   });
-  return listing;
+  return withAbsoluteImages(listing);
 }
 
 export async function patchListing(
@@ -456,5 +477,5 @@ export async function patchListing(
     method: "PATCH",
     body: JSON.stringify(patch),
   });
-  return listing;
+  return withAbsoluteImages(listing);
 }
