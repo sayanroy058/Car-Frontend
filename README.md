@@ -177,8 +177,8 @@ ride-redefined-io/
 | `GET` | `/api/health` | Health check |
 | `POST` | `/api/auth/login` | Login → `{ user, token }` |
 | `POST` | `/api/auth/register` | Register → `{ user, token }` |
-| `GET` | `/api/listings` | All listings |
-| `GET` | `/api/listings/search?brand=Tesla&yearMin=2020` | Search/filter (only listed/approved) |
+| `GET` | `/api/listings` | All listings (promoted first) |
+| `GET` | `/api/listings/search?brand=Hyundai&yearMin=2020` | Search/filter (only listed/approved, promoted first) |
 | `GET` | `/api/listings/:id` | Single listing |
 | `GET` | `/api/listings/:id/similar` | Similar cars by body type |
 | `GET` | `/api/reviews?listingId=:id` | Reviews for a listing |
@@ -227,12 +227,25 @@ Ownership is always derived from the JWT — no endpoint accepts a client-suppli
 - **Agent demo login** on the login page and navbar
 
 ### Listings & Inventory
+- **Vehicle catalogue** (`src/lib/catalogue.ts`) — brand → model → variant, with
+  real per-variant specifications. Selecting a variant auto-fills body type,
+  fuel, gearbox, displacement, power, torque, drivetrain, mileage, airbags,
+  seating, boot space, fuel tank and dimensions. Sellers never type these.
 - **Multi-step sell form** with image upload (exterior, interior, docs)
+- **Feature highlights** — sellers tick only what the car actually has; the
+  detail page renders that set instead of a fixed list
+- **Vehicle registration number** with state auto-derived from the plate, masked
+  publicly (`MH12 •• 1234`) and revealed to the seller and admins
 - **Agent onboarding flow** for walk-in sellers
 - **Admin "Add Car"** tab to directly publish inventory
-- **Approval pipeline**: pending_review → under_inspection → approved → listed → sold/rejected
+- **Approval pipeline**: pending_review → under_inspection → approved → listed → sold/rejected.
+  Creation always starts at `pending_review`; only admins publish.
 - **Pricing breakdown**: base + refurbishment + repair + transport + inspection + docs + commission + margin
-- **Search & filter**: by brand, body type, fuel, transmission, ownership, state, price, year, KM
+- **Search & filter**: by brand (popular pinned, then A–Z), body type incl.
+  Compact SUV and MUV/MPV, fuel, transmission, ownership, all 36 states/UTs,
+  price, year (tracks the calendar), KM
+- **Assured promotion** — admin-granted paid placement with an expiry; promoted
+  listings lead every sort order and are labelled as promoted on the card
 
 ### Image Storage
 - **All images stored locally** in `server/uploads/` (135+ car images)
