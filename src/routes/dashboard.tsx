@@ -23,25 +23,15 @@ export const Route = createFileRoute("/dashboard")({
       <TableSkeleton rows={4} />
     </div>
   ),
+  // Only listings are prefetched here. Offers, bookings and tickets are
+  // user-scoped and loaded by the store once the session is known — fetching
+  // them in the loader warmed a cache nothing read and fired unauthenticated
+  // requests before sign-in.
   loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData({
-        queryKey: qk.listings,
-        queryFn: () => getListings(),
-      }),
-      context.queryClient.ensureQueryData({
-        queryKey: qk.offers(),
-        queryFn: () => getOffers(),
-      }),
-      context.queryClient.ensureQueryData({
-        queryKey: qk.bookings(),
-        queryFn: () => getBookings(),
-      }),
-      context.queryClient.ensureQueryData({
-        queryKey: qk.tickets(),
-        queryFn: () => getTickets(),
-      }),
-    ]);
+    await context.queryClient.ensureQueryData({
+      queryKey: qk.listings,
+      queryFn: () => getListings(),
+    });
   },
 });
 

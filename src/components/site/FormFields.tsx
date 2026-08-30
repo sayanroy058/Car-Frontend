@@ -92,7 +92,9 @@ export function NumberField({
       name={name}
       render={({ field }) => {
         const display =
-          field.value === undefined || field.value === null || field.value === ""
+          field.value === undefined ||
+          field.value === null ||
+          field.value === ""
             ? ""
             : grouped
               ? Number(field.value).toLocaleString("en-IN")
@@ -204,7 +206,9 @@ export function SelectField({
               <SelectTrigger>
                 <SelectValue
                   placeholder={
-                    options.length === 0 ? (emptyHint ?? placeholder) : placeholder
+                    options.length === 0
+                      ? (emptyHint ?? placeholder)
+                      : placeholder
                   }
                 />
               </SelectTrigger>
@@ -216,7 +220,9 @@ export function SelectField({
                   {o}
                 </SelectItem>
               ))}
-              {pinnedPresent.length > 0 && rest.length > 0 && <SelectSeparator />}
+              {pinnedPresent.length > 0 && rest.length > 0 && (
+                <SelectSeparator />
+              )}
               {rest.map((o) => (
                 <SelectItem key={o} value={o}>
                   {o}
@@ -263,13 +269,16 @@ export function HighlightPicker({
             <FormLabel className="mb-1.5 inline-block">
               Feature highlights{" "}
               <span className="font-normal text-muted-foreground">
-                — tick only what this car actually has ({selected.length} selected)
+                — tick only what this car actually has ({selected.length}{" "}
+                selected)
               </span>
             </FormLabel>
             <div className="space-y-2">
               {Object.entries(groups).map(([group, options]) => {
                 const open = openGroup === group;
-                const count = options.filter((o) => selected.includes(o)).length;
+                const count = options.filter((o) =>
+                  selected.includes(o),
+                ).length;
                 return (
                   <div
                     key={group}
@@ -314,3 +323,53 @@ export function HighlightPicker({
   );
 }
 
+/**
+ * Numeric input for plain (non-react-hook-form) state, matching the behaviour of
+ * the shared NumberField: text-based so it has no spinner arrows, is not changed
+ * by the scroll wheel, can be cleared to empty, and groups digits Indian-style.
+ */
+export function PlainNumberInput({
+  value,
+  onChange,
+  placeholder,
+  suffix,
+  grouped = true,
+  id,
+}: {
+  value: number | undefined;
+  onChange: (v: number | undefined) => void;
+  placeholder?: string;
+  suffix?: string;
+  grouped?: boolean;
+  id?: string;
+}) {
+  const display =
+    value === undefined || value === null
+      ? ""
+      : grouped
+        ? Number(value).toLocaleString("en-IN")
+        : String(value);
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type="text"
+        inputMode="numeric"
+        autoComplete="off"
+        placeholder={placeholder}
+        value={display}
+        onChange={(e) => {
+          const digits = e.target.value.replace(/[^\d]/g, "");
+          onChange(digits === "" ? undefined : Number(digits));
+        }}
+        className={suffix ? "pr-12" : undefined}
+      />
+      {suffix && (
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+          {suffix}
+        </span>
+      )}
+    </div>
+  );
+}

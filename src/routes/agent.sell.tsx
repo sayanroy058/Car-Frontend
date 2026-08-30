@@ -103,21 +103,23 @@ function AgentSell() {
       brand: "",
       model: "",
       variant: "",
-      bodyType: "Sedan",
-      year: 2022,
-      registrationYear: 2022,
-      fuelType: "Petrol",
-      transmission: "Automatic",
-      kmDriven: 25000,
+      bodyType: "",
+      // Left empty so the agent enters the seller's actual figures.
+      year: undefined,
+      registrationYear: undefined,
+      fuelType: "",
+      transmission: "",
+      kmDriven: undefined,
       ownership: "1st Owner",
-      registrationState: "Maharashtra",
-      registrationCity: "Mumbai",
+      registrationNumber: "",
+      registrationState: "",
+      registrationCity: "",
       vin: "",
       insuranceStatus: "Active",
       roadTaxStatus: "Paid",
       serviceHistory: "Complete dealer history",
       accidentHistory: "No accidents",
-      keys: 2,
+      keys: undefined,
       exteriorCondition: "Excellent",
       interiorCondition: "Excellent",
       engineCondition: "Excellent",
@@ -126,9 +128,57 @@ function AgentSell() {
       defects: "",
       modifications: "None",
       description: "",
-      expectedPrice: 1500000,
+      highlights: [],
+      expectedPrice: undefined,
     },
   });
+
+  // ── Dependent catalogue selects (same behaviour as the seller-facing form) ──
+  const brand = form.watch("brand");
+  const model = form.watch("model");
+  const variant = form.watch("variant");
+  const registrationNumber = form.watch("registrationNumber");
+  const registrationState = form.watch("registrationState");
+
+  const models = modelNamesFor(brand);
+  const variants = variantNamesFor(brand, model);
+  const cities = citiesFor(registrationState);
+  const specs = resolveSpecs(brand, model, variant);
+
+  useEffect(() => {
+    if (model && !modelNamesFor(brand).includes(model)) {
+      form.setValue("model", "", { shouldValidate: false });
+      form.setValue("variant", "", { shouldValidate: false });
+    }
+  }, [brand]);
+
+  useEffect(() => {
+    if (variant && !variantNamesFor(brand, model).includes(variant)) {
+      form.setValue("variant", "", { shouldValidate: false });
+    }
+  }, [brand, model]);
+
+  useEffect(() => {
+    if (!specs) return;
+    form.setValue("bodyType", specs.bodyType, { shouldValidate: false });
+    form.setValue("fuelType", specs.fuelType, { shouldValidate: false });
+    form.setValue("transmission", specs.transmission, { shouldValidate: false });
+  }, [brand, model, variant]);
+
+  useEffect(() => {
+    const derived = stateFromRegistrationNumber(registrationNumber);
+    if (derived && derived !== registrationState) {
+      form.setValue("registrationState", derived, { shouldValidate: false });
+      form.setValue("registrationCity", "", { shouldValidate: false });
+    }
+  }, [registrationNumber]);
+
+  useEffect(() => {
+    const city = form.getValues("registrationCity");
+    if (city && !citiesFor(registrationState).includes(city)) {
+      form.setValue("registrationCity", "", { shouldValidate: false });
+    }
+  }, [registrationState]);
 
   if (!user || user.role !== "agent") {
     return (
@@ -173,6 +223,8 @@ function AgentSell() {
         imageUrls = CAR_IMAGES;
       }
 
+      const resolved = resolveSpecs(values.brand, values.model, values.variant);
+
       const listingData = {
         sellerId: user!.id,
         sellerName: values.sellerName,
@@ -190,6 +242,7 @@ function AgentSell() {
         registrationState: values.registrationState,
         registrationCity: values.registrationCity,
         vin: values.vin ?? "",
+        registrationNumber: values.registrationNumber || undefined,
         insuranceStatus: values.insuranceStatus,
         roadTaxStatus: values.roadTaxStatus,
         serviceHistory: values.serviceHistory,
@@ -203,19 +256,41 @@ function AgentSell() {
         defects: values.defects ?? "",
         modifications: values.modifications ?? "None",
         description: `[Agent: ${user!.name}] ${values.description ?? ""}\n\nAgent notes: ${agentNotes}`,
+        highlights: values.highlights ?? [],
         expectedPrice: values.expectedPrice,
         address: values.address ?? "",
         preferredContactTime: values.preferredContactTime,
         bodyType: values.bodyType,
         images: imageUrls,
         status: "pending_review" as const,
+        // Specs come from the catalogue, not from typed input.
+        ...(resolved
+          ? {
+              displacementCc: resolved.displacementCc,
+              maxPowerBhp: resolved.maxPowerBhp,
+              maxPowerRpm: resolved.maxPowerRpm,
+              maxTorqueNm: resolved.maxTorqueNm,
+              maxTorqueRpm: resolved.maxTorqueRpm,
+              driveTrain: resolved.driveTrain,
+              mileageKmpl: resolved.mileageKmpl,
+              seating: resolved.seating,
+              bootSpaceL: resolved.bootSpaceL,
+              fuelTankL: resolved.fuelTankL,
+              groundClearanceMm: resolved.groundClearanceMm,
+              lengthMm: resolved.lengthMm,
+              widthMm: resolved.widthMm,
+              heightMm: resolved.heightMm,
+              wheelbaseMm: resolved.wheelbaseMm,
+              airbags: resolved.airbags,
+            }
+          : {}),
       };
       const created = await createListing(listingData);
       addListing(created);
       toast.success("Car onboarded — submitted for inspection & pricing");
       nav({ to: "/agent" });
-    } catch {
-      toast.error("Failed to upload images. Please try again.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Submission failed. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -278,15 +353,66 @@ function AgentSell() {
                 name="brand"
                 label="Brand *"
                 options={BRANDS}
+                pinned={POPULAR_BRANDS}
                 placeholder="Select brand"
               />
-              <TextField name="model" label="Model *" />
-              <TextField name="variant" label="Variant" placeholder="e.g. ZXi AT" />
+              <SelectField
+                name="model"
+                label="Model *"
+                options={models}
+                placeholder="Select model"
+                disabled={!brand}
+                emptyHint="Select a brand first"
+              />
+              <SelectField
+                name="variant"
+                label="Variant *"
+                options={variants}
+                placeholder="Select variant"
+                disabled={!model}
+                emptyHint="Select a model first"
+              />
               <SelectField name="bodyType" label="Body type" options={BODY_TYPES} />
-              <NumberField name="year" label="Mfg. year" />
-              <NumberField name="registrationYear" label="Registration year" />
-              <SelectField name="registrationState" label="Registration state" options={STATES} />
-              <TextField name="registrationCity" label="Registration city" />
+              <NumberField
+                name="year"
+                label="Mfg. year *"
+                placeholder="e.g. 2022"
+                grouped={false}
+              />
+              <NumberField
+                name="registrationYear"
+                label="Registration year *"
+                placeholder="e.g. 2022"
+                grouped={false}
+              />
+              <TextField
+                name="registrationNumber"
+                label="Vehicle registration number"
+                placeholder="e.g. MH12AB1234"
+              />
+              <SelectField
+                name="registrationState"
+                label="Registration state *"
+                options={STATES}
+                placeholder="Select state"
+              />
+              <SelectField
+                name="registrationCity"
+                label="Registration city *"
+                options={cities}
+                placeholder="Select city"
+                disabled={!registrationState}
+                emptyHint="Select a state first"
+              />
+              {specs && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs md:col-span-2">
+                  <Info className="mr-1.5 inline h-3.5 w-3.5 text-primary" />
+                  Specs auto-filled from the catalogue: {specs.displacementCc || "EV"}
+                  {specs.displacementCc ? " cc" : ""}, {specs.maxPowerBhp} bhp,{" "}
+                  {specs.maxTorqueNm} Nm, {specs.driveTrain}, {specs.airbags} airbags,{" "}
+                  {specs.bootSpaceL ?? "—"} L boot.
+                </div>
+              )}
             </div>
           )}
 
@@ -294,10 +420,20 @@ function AgentSell() {
             <div className="grid gap-4 md:grid-cols-2">
               <SelectField name="fuelType" label="Fuel type" options={FUEL_TYPES} />
               <SelectField name="transmission" label="Transmission" options={TRANSMISSIONS} />
-              <NumberField name="kmDriven" label="KM driven" />
+              <NumberField
+                name="kmDriven"
+                label="KM driven *"
+                placeholder="e.g. 35,000"
+                suffix="km"
+              />
               <SelectField name="ownership" label="Ownership" options={OWNERSHIP} />
               <TextField name="vin" label="VIN / Chassis" />
-              <NumberField name="keys" label="Number of keys" />
+              <SelectField
+                name="keys"
+                label="Number of keys *"
+                options={KEY_OPTIONS}
+                placeholder="Choose"
+              />
               <SelectField
                 name="insuranceStatus"
                 label="Insurance"
@@ -337,8 +473,24 @@ function AgentSell() {
           )}
 
           {step === 4 && (
+            <div className="grid gap-5">
+              <HighlightPicker name="highlights" groups={HIGHLIGHT_OPTIONS} />
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+                <Info className="mr-2 inline h-4 w-4 text-primary" />
+                Tick only what you have verified on the car. Anything unconfirmed is
+                removed at inspection.
+              </div>
+            </div>
+          )}
+
+          {step === 5 && (
             <div className="grid gap-4">
-              <NumberField name="expectedPrice" label="Seller's expected price (₹)" />
+              <NumberField
+                name="expectedPrice"
+                label="Seller's expected price *"
+                placeholder="e.g. 8,50,000"
+                suffix="₹"
+              />
               <TextareaField
                 name="description"
                 label="Description for buyers"
@@ -346,9 +498,9 @@ function AgentSell() {
                 placeholder="Well-maintained single-owner car with full service history..."
               />
               <div>
-                <FormLabel className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
                   Internal agent notes (not visible to buyers)
-                </FormLabel>
+                </span>
                 <Textarea
                   rows={3}
                   value={agentNotes}
@@ -471,126 +623,5 @@ function AgentSell() {
         </form>
       </Form>
     </div>
-  );
-}
-
-function TextField({
-  name,
-  label,
-  placeholder,
-  type = "text",
-}: {
-  name: keyof SellValues;
-  label: string;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            {label}
-          </FormLabel>
-          <FormControl>
-            <Input type={type} placeholder={placeholder} {...field} />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function NumberField({ name, label }: { name: keyof SellValues; label: string }) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            {label}
-          </FormLabel>
-          <FormControl>
-            <Input
-              type="number"
-              value={field.value}
-              onChange={(e) => field.onChange(+e.target.value)}
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function TextareaField({
-  name,
-  label,
-  rows = 3,
-  placeholder,
-}: {
-  name: keyof SellValues;
-  label: string;
-  rows?: number;
-  placeholder?: string;
-}) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            {label}
-          </FormLabel>
-          <FormControl>
-            <Textarea rows={rows} placeholder={placeholder} {...field} />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function SelectField({
-  name,
-  label,
-  options,
-  placeholder,
-}: {
-  name: keyof SellValues;
-  label: string;
-  options: string[];
-  placeholder?: string;
-}) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            {label}
-          </FormLabel>
-          <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-            <FormControl>
-              <SelectTrigger>
-                <SelectValue placeholder={placeholder} />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {options.map((o) => (
-                <SelectItem key={o} value={o}>
-                  {o}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
   );
 }

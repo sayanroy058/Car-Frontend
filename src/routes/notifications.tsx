@@ -18,22 +18,8 @@ export const Route = createFileRoute("/notifications")({
       <TableSkeleton rows={4} />
     </div>
   ),
-  loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData({
-        queryKey: qk.offers(),
-        queryFn: () => getOffers(),
-      }),
-      context.queryClient.ensureQueryData({
-        queryKey: qk.bookings(),
-        queryFn: () => getBookings(),
-      }),
-      context.queryClient.ensureQueryData({
-        queryKey: qk.tickets(),
-        queryFn: () => getTickets(),
-      }),
-    ]);
-  },
+  // Offers, bookings and tickets are user-scoped and loaded by the store once
+  // the session is known, so there is nothing to prefetch here.
 });
 
 type Item = {

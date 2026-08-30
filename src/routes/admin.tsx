@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  BadgeCheck,
   Briefcase,
   Camera,
   Car,
@@ -52,6 +53,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -59,7 +61,10 @@ import { Separator } from "@/components/ui/separator";
 import { useApp } from "@/lib/store";
 import { calculateFinalPrice } from "@/lib/constants";
 import { BRANDS, BODY_TYPES, FUEL_TYPES, OWNERSHIP, STATES, TRANSMISSIONS } from "@/lib/constants";
+import { POPULAR_BRANDS, modelNamesFor, resolveSpecs, variantNamesFor } from "@/lib/catalogue";
+import { citiesFor, stateFromRegistrationNumber } from "@/lib/regions";
 import { formatPrice, StatusBadge } from "@/components/site/CarCard";
+import { PlainNumberInput } from "@/components/site/FormFields";
 import { TableSkeleton } from "@/components/site/Skeletons";
 import { Seo } from "@/components/site/Seo";
 import { getListings, getTickets, uploadImages, createListing, patchListing, assetUrl } from "@/lib/api";
@@ -74,16 +79,11 @@ export const Route = createFileRoute("/admin")({
     </div>
   ),
   loader: async ({ context }) => {
-    await Promise.all([
-      context.queryClient.ensureQueryData({
-        queryKey: qk.listings,
-        queryFn: () => getListings(),
-      }),
-      context.queryClient.ensureQueryData({
-        queryKey: qk.tickets(),
-        queryFn: () => getTickets(),
-      }),
-    ]);
+    // Tickets are user-scoped and loaded by the store; only listings are public.
+    await context.queryClient.ensureQueryData({
+      queryKey: qk.listings,
+      queryFn: () => getListings(),
+    });
   },
 });
 
@@ -311,6 +311,7 @@ function Admin() {
                   <th className="p-3">Final</th>
                   <th className="p-3">Views</th>
                   <th className="p-3">Listed</th>
+                  <th className="p-3">Assured</th>
                 </tr>
               </thead>
               <tbody>
@@ -339,6 +340,9 @@ function Admin() {
                     <td className="p-3 text-muted-foreground">{l.views ?? 0}</td>
                     <td className="p-3 text-muted-foreground">
                       {new Date(l.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="p-3">
+                      <AssuredCell listing={l} />
                     </td>
                   </tr>
                 ))}
@@ -968,44 +972,191 @@ function BookingsTable({
 
 // ── Add Car form for admins ──
 
+/**
+ * Paid "Assured" promotion. Plans set an expiry; a listing is promoted while
+ * that expiry is in the future, and the card labels it as promoted so it is not
+ * passed off as an organic result.
+ *
+ * Payment capture is not wired up yet — an admin grants the placement after
+ * payment is confirmed out of band, and records the reference. Until a payment
+ * gateway is integrated this is deliberately admin-only, which is also why the
+ * API rejects assured* fields from non-admin callers.
+ */
+const ASSURED_PLANS: { id: string; label: string; days: number }[] = [
+  { id: "assured-7", label: "7 days", days: 7 },
+  { id: "assured-15", label: "15 days", days: 15 },
+  { id: "assured-30", label: "30 days", days: 30 },
+];
+
+function AssuredCell({ listing }: { listing: Listing }) {
+  const { updateListing } = useApp();
+  const [busy, setBusy] = useState(false);
+  const active = (listing.assuredUntil ?? 0) > Date.now();
+
+  async function grant(planId: string) {
+    const plan = ASSURED_PLANS.find((p) => p.id === planId);
+    if (!plan) return;
+    const paymentId = window.prompt(
+      `Payment reference for ${plan.label} Assured placement (leave blank if collected offline):`,
+    );
+    if (paymentId === null) return; // cancelled
+
+    const patch = {
+      assuredPlan: plan.id,
+      assuredUntil: Date.now() + plan.days * 86400000,
+      assuredPaymentId: paymentId || undefined,
+    };
+    setBusy(true);
+    try {
+      await patchListing(listing.id, patch);
+      updateListing(listing.id, patch);
+      toast.success(`Promoted for ${plan.label}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't promote listing");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revoke() {
+    const patch = { assuredPlan: undefined, assuredUntil: 0, assuredPaymentId: undefined };
+    setBusy(true);
+    try {
+      await patchListing(listing.id, { assuredUntil: 0 });
+      updateListing(listing.id, patch);
+      toast.success("Promotion removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't remove promotion");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (active) {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-accent">
+          <BadgeCheck className="h-3 w-3" />
+          Until {new Date(listing.assuredUntil!).toLocaleDateString()}
+        </span>
+        <button
+          onClick={revoke}
+          disabled={busy}
+          className="w-fit text-[11px] text-muted-foreground underline hover:text-destructive"
+        >
+          Remove
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Select onValueChange={grant} disabled={busy}>
+      <SelectTrigger className="h-8 w-28 text-xs">
+        <SelectValue placeholder="Promote" />
+      </SelectTrigger>
+      <SelectContent>
+        {ASSURED_PLANS.map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/**
+ * Blank starting state. Numeric fields are undefined rather than pre-filled so
+ * an admin cannot accidentally publish a placeholder year, odometer or price.
+ */
+const EMPTY_CAR_FORM = {
+  brand: "",
+  model: "",
+  variant: "",
+  bodyType: "",
+  year: undefined as number | undefined,
+  registrationYear: undefined as number | undefined,
+  fuelType: "",
+  transmission: "",
+  kmDriven: undefined as number | undefined,
+  ownership: "1st Owner",
+  registrationNumber: "",
+  registrationState: "",
+  registrationCity: "",
+  vin: "",
+  insuranceStatus: "Active",
+  roadTaxStatus: "Paid",
+  serviceHistory: "Complete dealer history",
+  accidentHistory: "No accidents",
+  keys: 2,
+  exteriorCondition: "Excellent",
+  interiorCondition: "Excellent",
+  engineCondition: "Excellent",
+  tireCondition: "Good (70%+)",
+  batteryCondition: "Good",
+  defects: "",
+  modifications: "None",
+  description: "",
+  highlights: [] as string[],
+  expectedPrice: undefined as number | undefined,
+  address: "",
+  preferredContactTime: "Afternoon (12-5)",
+  status: "listed" as Listing["status"],
+};
+
 function AddCarForm() {
   const { user, addListing } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [form, setForm] = useState({
-    brand: "",
-    model: "",
-    variant: "",
-    bodyType: "Sedan",
-    year: 2024,
-    registrationYear: 2024,
-    fuelType: "Petrol",
-    transmission: "Automatic",
-    kmDriven: 10000,
-    ownership: "1st Owner",
-    registrationState: "Maharashtra",
-    registrationCity: "Mumbai",
-    vin: "",
-    insuranceStatus: "Active",
-    roadTaxStatus: "Paid",
-    serviceHistory: "Complete dealer history",
-    accidentHistory: "No accidents",
-    keys: 2,
-    exteriorCondition: "Excellent",
-    interiorCondition: "Excellent",
-    engineCondition: "Excellent",
-    tireCondition: "Good (70%+)",
-    batteryCondition: "Good",
-    defects: "",
-    modifications: "None",
-    description: "",
-    expectedPrice: 1500000,
-    address: "",
-    preferredContactTime: "Afternoon (12-5)",
-    status: "listed" as Listing["status"],
-  });
+  const [form, setForm] = useState(EMPTY_CAR_FORM);
+
+  // Catalogue-driven options, mirroring the seller and agent forms.
+  const models = modelNamesFor(form.brand);
+  const variants = variantNamesFor(form.brand, form.model);
+  const cities = citiesFor(form.registrationState);
+  const specs = resolveSpecs(form.brand, form.model, form.variant);
+
+  // Selecting a variant fills body type, fuel and gearbox; changing a parent
+  // clears its dependents so a mismatched combination cannot be submitted.
+  useEffect(() => {
+    setForm((prev) => {
+      const validModels = modelNamesFor(prev.brand);
+      if (prev.model && !validModels.includes(prev.model)) {
+        return { ...prev, model: "", variant: "" };
+      }
+      const validVariants = variantNamesFor(prev.brand, prev.model);
+      if (prev.variant && !validVariants.includes(prev.variant)) {
+        return { ...prev, variant: "" };
+      }
+      return prev;
+    });
+  }, [form.brand, form.model]);
+
+  useEffect(() => {
+    if (!specs) return;
+    setForm((prev) => ({
+      ...prev,
+      bodyType: specs.bodyType,
+      fuelType: specs.fuelType,
+      transmission: specs.transmission,
+    }));
+  }, [form.brand, form.model, form.variant]);
+
+  useEffect(() => {
+    const derived = stateFromRegistrationNumber(form.registrationNumber);
+    if (derived && derived !== form.registrationState) {
+      setForm((prev) => ({ ...prev, registrationState: derived, registrationCity: "" }));
+    }
+  }, [form.registrationNumber]);
+
+  useEffect(() => {
+    if (form.registrationCity && !citiesFor(form.registrationState).includes(form.registrationCity)) {
+      setForm((prev) => ({ ...prev, registrationCity: "" }));
+    }
+  }, [form.registrationState]);
 
   function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
@@ -1027,8 +1178,15 @@ function AddCarForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.brand || !form.model) {
-      toast.error("Brand and model are required");
+    const missing: string[] = [];
+    if (!form.brand) missing.push("brand");
+    if (!form.model) missing.push("model");
+    if (!form.variant) missing.push("variant");
+    if (form.year === undefined) missing.push("year");
+    if (form.kmDriven === undefined) missing.push("kilometers");
+    if (form.expectedPrice === undefined) missing.push("price");
+    if (missing.length) {
+      toast.error(`Please fill in: ${missing.join(", ")}`);
       return;
     }
     if (!user) {
@@ -1045,6 +1203,8 @@ function AddCarForm() {
         imageUrls = [assetUrl("/uploads/fallback-0.jpg"), assetUrl("/uploads/fallback-1.jpg"), assetUrl("/uploads/fallback-2.jpg")];
       }
 
+      const resolved = resolveSpecs(form.brand, form.model, form.variant);
+
       const listingData: Omit<Listing, "id" | "createdAt"> = {
         sellerId: user.id,
         sellerName: user.name,
@@ -1053,15 +1213,16 @@ function AddCarForm() {
         brand: form.brand,
         model: form.model,
         variant: form.variant,
-        year: form.year,
-        registrationYear: form.registrationYear,
+        year: form.year!,
+        registrationYear: form.registrationYear ?? form.year!,
         fuelType: form.fuelType,
         transmission: form.transmission,
-        kmDriven: form.kmDriven,
+        kmDriven: form.kmDriven!,
         ownership: form.ownership,
         registrationState: form.registrationState,
         registrationCity: form.registrationCity,
         vin: form.vin,
+        registrationNumber: form.registrationNumber || undefined,
         insuranceStatus: form.insuranceStatus,
         roadTaxStatus: form.roadTaxStatus,
         serviceHistory: form.serviceHistory,
@@ -1075,37 +1236,33 @@ function AddCarForm() {
         defects: form.defects,
         modifications: form.modifications,
         description: form.description,
-        expectedPrice: form.expectedPrice,
+        highlights: form.highlights,
+        expectedPrice: form.expectedPrice!,
         address: form.address,
         preferredContactTime: form.preferredContactTime,
         bodyType: form.bodyType,
         images: imageUrls,
         status: form.status,
+        // Specs from the catalogue rather than typed values.
+        ...(resolved ?? {}),
       };
 
       const created = await createListing(listingData);
-      addListing(created);
+      // Admins may publish directly; the API forces pending_review on create, so
+      // apply the chosen status as a follow-up admin-only patch.
+      const final =
+        form.status !== "pending_review"
+          ? await patchListing(created.id, { status: form.status })
+          : created;
+      addListing(final);
       toast.success(`${form.brand} ${form.model} added to inventory!`);
 
-      // Reset form
       setFiles([]);
       setPreviews([]);
-      setForm({
-        brand: "", model: "", variant: "", bodyType: "Sedan", year: 2024,
-        registrationYear: 2024, fuelType: "Petrol", transmission: "Automatic",
-        kmDriven: 10000, ownership: "1st Owner", registrationState: "Maharashtra",
-        registrationCity: "Mumbai", vin: "", insuranceStatus: "Active",
-        roadTaxStatus: "Paid", serviceHistory: "Complete dealer history",
-        accidentHistory: "No accidents", keys: 2, exteriorCondition: "Excellent",
-        interiorCondition: "Excellent", engineCondition: "Excellent",
-        tireCondition: "Good (70%+)", batteryCondition: "Good",
-        defects: "", modifications: "None", description: "",
-        expectedPrice: 1500000, address: "", preferredContactTime: "Afternoon (12-5)",
-        status: "listed",
-      });
+      setForm(EMPTY_CAR_FORM);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch {
-      toast.error("Failed to create listing");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create listing");
     } finally {
       setUploading(false);
     }
@@ -1117,53 +1274,94 @@ function AddCarForm() {
       <div className="grid gap-4 md:grid-cols-3">
         <div>
           <Label className="mb-1.5 block text-xs">Brand *</Label>
-          <Select value={form.brand} onValueChange={(v) => setField("brand", v)}>
+          <Select value={form.brand || undefined} onValueChange={(v) => setField("brand", v)}>
             <SelectTrigger><SelectValue placeholder="Select brand" /></SelectTrigger>
-            <SelectContent>
-              {BRANDS.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
+            <SelectContent className="max-h-72">
+              {/* Popular brands first, then the rest alphabetically. */}
+              {POPULAR_BRANDS.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
+              <SelectSeparator />
+              {BRANDS.filter((b) => !POPULAR_BRANDS.includes(b as (typeof POPULAR_BRANDS)[number]))
+                .map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}
             </SelectContent>
           </Select>
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">Model *</Label>
-          <Input value={form.model} onChange={(e) => setField("model", e.target.value)} placeholder="e.g. Model 3" />
+          <Select
+            value={form.model || undefined}
+            onValueChange={(v) => setField("model", v)}
+            disabled={!form.brand}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={form.brand ? "Select model" : "Select a brand first"} />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              {models.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
-          <Label className="mb-1.5 block text-xs">Variant</Label>
-          <Input value={form.variant} onChange={(e) => setField("variant", e.target.value)} placeholder="e.g. Long Range" />
+          <Label className="mb-1.5 block text-xs">Variant *</Label>
+          <Select
+            value={form.variant || undefined}
+            onValueChange={(v) => setField("variant", v)}
+            disabled={!form.model}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={form.model ? "Select variant" : "Select a model first"} />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              {variants.map((vr) => (<SelectItem key={vr} value={vr}>{vr}</SelectItem>))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">Body type</Label>
-          <Select value={form.bodyType} onValueChange={(v) => setField("bodyType", v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={form.bodyType || undefined} onValueChange={(v) => setField("bodyType", v)}>
+            <SelectTrigger><SelectValue placeholder="Select body type" /></SelectTrigger>
             <SelectContent>{BODY_TYPES.map((b) => (<SelectItem key={b} value={b}>{b}</SelectItem>))}</SelectContent>
           </Select>
         </div>
         <div>
-          <Label className="mb-1.5 block text-xs">Year</Label>
-          <Input type="number" value={form.year} onChange={(e) => setField("year", +e.target.value)} />
+          <Label className="mb-1.5 block text-xs">Year *</Label>
+          <PlainNumberInput
+            value={form.year}
+            onChange={(v) => setField("year", v)}
+            placeholder="e.g. 2022"
+            grouped={false}
+          />
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">Registration year</Label>
-          <Input type="number" value={form.registrationYear} onChange={(e) => setField("registrationYear", +e.target.value)} />
+          <PlainNumberInput
+            value={form.registrationYear}
+            onChange={(v) => setField("registrationYear", v)}
+            placeholder="e.g. 2022"
+            grouped={false}
+          />
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">Fuel type</Label>
-          <Select value={form.fuelType} onValueChange={(v) => setField("fuelType", v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={form.fuelType || undefined} onValueChange={(v) => setField("fuelType", v)}>
+            <SelectTrigger><SelectValue placeholder="Select fuel" /></SelectTrigger>
             <SelectContent>{FUEL_TYPES.map((f) => (<SelectItem key={f} value={f}>{f}</SelectItem>))}</SelectContent>
           </Select>
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">Transmission</Label>
-          <Select value={form.transmission} onValueChange={(v) => setField("transmission", v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+          <Select value={form.transmission || undefined} onValueChange={(v) => setField("transmission", v)}>
+            <SelectTrigger><SelectValue placeholder="Select transmission" /></SelectTrigger>
             <SelectContent>{TRANSMISSIONS.map((t) => (<SelectItem key={t} value={t}>{t}</SelectItem>))}</SelectContent>
           </Select>
         </div>
         <div>
-          <Label className="mb-1.5 block text-xs">KM driven</Label>
-          <Input type="number" value={form.kmDriven} onChange={(e) => setField("kmDriven", +e.target.value)} />
+          <Label className="mb-1.5 block text-xs">KM driven *</Label>
+          <PlainNumberInput
+            value={form.kmDriven}
+            onChange={(v) => setField("kmDriven", v)}
+            placeholder="e.g. 35,000"
+            suffix="km"
+          />
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">Ownership</Label>
@@ -1173,19 +1371,43 @@ function AddCarForm() {
           </Select>
         </div>
         <div>
+          <Label className="mb-1.5 block text-xs">Registration number</Label>
+          <Input
+            value={form.registrationNumber}
+            onChange={(e) => setField("registrationNumber", e.target.value)}
+            placeholder="e.g. MH12AB1234"
+          />
+        </div>
+        <div>
           <Label className="mb-1.5 block text-xs">State</Label>
-          <Select value={form.registrationState} onValueChange={(v) => setField("registrationState", v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{STATES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
+          <Select value={form.registrationState || undefined} onValueChange={(v) => setField("registrationState", v)}>
+            <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
+            <SelectContent className="max-h-72">{STATES.map((s) => (<SelectItem key={s} value={s}>{s}</SelectItem>))}</SelectContent>
           </Select>
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">City</Label>
-          <Input value={form.registrationCity} onChange={(e) => setField("registrationCity", e.target.value)} />
+          <Select
+            value={form.registrationCity || undefined}
+            onValueChange={(v) => setField("registrationCity", v)}
+            disabled={!form.registrationState}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder={form.registrationState ? "Select city" : "Select a state first"} />
+            </SelectTrigger>
+            <SelectContent className="max-h-72">
+              {cities.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
+            </SelectContent>
+          </Select>
         </div>
         <div>
-          <Label className="mb-1.5 block text-xs">Expected price (₹)</Label>
-          <Input type="number" value={form.expectedPrice} onChange={(e) => setField("expectedPrice", +e.target.value)} />
+          <Label className="mb-1.5 block text-xs">Expected price *</Label>
+          <PlainNumberInput
+            value={form.expectedPrice}
+            onChange={(v) => setField("expectedPrice", v)}
+            placeholder="e.g. 8,50,000"
+            suffix="₹"
+          />
         </div>
         <div>
           <Label className="mb-1.5 block text-xs">Initial status</Label>

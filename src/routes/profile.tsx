@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
-import { Clock, History, LogOut, Settings, ShieldCheck } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Camera, Clock, History, Loader2, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useApp } from "@/lib/store";
+import { uploadImages } from "@/lib/api";
 import { CarCard } from "@/components/site/CarCard";
 
 export const Route = createFileRoute("/profile")({
@@ -28,7 +30,48 @@ function Profile() {
     email: user?.email ?? "",
     phone: user?.phone ?? "",
     address: "",
+    firmName: user?.firmName ?? "",
   });
+  // Profile photo / dealership logo upload.
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? "");
+  const [firmLogoUrl, setFirmLogoUrl] = useState(user?.firmLogoUrl ?? "");
+  const [uploading, setUploading] = useState<"avatar" | "logo" | null>(null);
+
+  // Keep the form in step with the server copy once /auth/me resolves.
+  useEffect(() => {
+    if (!user) return;
+    setForm((f) => ({
+      ...f,
+      name: user.name,
+      email: user.email,
+      phone: user.phone ?? "",
+      firmName: user.firmName ?? "",
+    }));
+    setAvatarUrl(user.avatarUrl ?? "");
+    setFirmLogoUrl(user.firmLogoUrl ?? "");
+  }, [user?.id, user?.avatarUrl, user?.firmLogoUrl]);
+
+  /** Uploads a single image and saves the resulting URL to the profile. */
+  async function pickImage(kind: "avatar" | "logo", file: File | undefined) {
+    if (!file) return;
+    setUploading(kind);
+    try {
+      const [url] = await uploadImages([file]);
+      if (!url) throw new Error("Upload returned no URL");
+      if (kind === "avatar") {
+        setAvatarUrl(url);
+        updateProfile({ avatarUrl: url });
+      } else {
+        setFirmLogoUrl(url);
+        updateProfile({ firmLogoUrl: url });
+      }
+      toast.success(kind === "avatar" ? "Profile photo updated" : "Dealership logo updated");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(null);
+    }
+  }
 
   if (!user) {
     return (
@@ -61,9 +104,34 @@ function Profile() {
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="rounded-2xl border border-border/60 bg-card p-6 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-2xl font-bold text-primary-foreground">
-              {user.name.slice(0, 1).toUpperCase()}
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Profile photo / dealership logo upload. */}
+            <div className="relative">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={avatarUrl || undefined} alt="" />
+                <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-2xl font-bold text-primary-foreground">
+                  {user.name.slice(0, 1).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <input
+                id="profile-avatar"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => pickImage("avatar", e.target.files?.[0])}
+              />
+              <label
+                htmlFor="profile-avatar"
+                title="Change profile photo"
+                className="absolute -bottom-1 -right-1 grid h-7 w-7 cursor-pointer place-items-center rounded-full border border-border bg-background shadow hover:bg-secondary"
+              >
+                {uploading === "avatar" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Camera className="h-3.5 w-3.5" />
+                )}
+                <span className="sr-only">Upload profile photo</span>
+              </label>
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -74,6 +142,41 @@ function Profile() {
                 </Badge>
               </div>
               <div className="text-sm text-muted-foreground">{user.email}</div>
+              {user.firmName && (
+                <div className="text-sm font-medium">{user.firmName}</div>
+              )}
+            </div>
+
+            {/* Dealers and agents can add a firm logo shown alongside listings. */}
+            <div className="ml-auto flex items-center gap-3">
+              {firmLogoUrl ? (
+                <img
+                  src={firmLogoUrl}
+                  alt="Dealership logo"
+                  className="h-14 w-14 rounded-lg border border-border/60 object-contain"
+                />
+              ) : (
+                <div className="grid h-14 w-14 place-items-center rounded-lg border border-dashed border-border/60 text-[10px] text-muted-foreground">
+                  No logo
+                </div>
+              )}
+              <input
+                id="firm-logo"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => pickImage("logo", e.target.files?.[0])}
+              />
+              <Button asChild variant="outline" size="sm" disabled={uploading === "logo"}>
+                <label htmlFor="firm-logo" className="cursor-pointer">
+                  {uploading === "logo" ? (
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="mr-1 h-3.5 w-3.5" />
+                  )}
+                  {firmLogoUrl ? "Change logo" : "Add firm / dealership logo"}
+                </label>
+              </Button>
             </div>
           </div>
           <form
@@ -84,7 +187,12 @@ function Profile() {
                 toast.error("Name cannot be empty");
                 return;
               }
-              updateProfile({ name: form.name, email: form.email, phone: form.phone });
+              updateProfile({
+                name: form.name,
+                email: form.email,
+                phone: form.phone,
+                firmName: form.firmName,
+              });
               toast.success("Profile saved");
             }}
           >
@@ -114,6 +222,14 @@ function Profile() {
             <div>
               <Label>Role</Label>
               <Input value={ROLE_LABEL[user.role] ?? user.role} disabled />
+            </div>
+            <div>
+              <Label>Firm / dealership name</Label>
+              <Input
+                value={form.firmName}
+                onChange={(e) => setForm((f) => ({ ...f, firmName: e.target.value }))}
+                placeholder="e.g. Sharma Motors"
+              />
             </div>
             <div className="md:col-span-2">
               <Label>Address</Label>

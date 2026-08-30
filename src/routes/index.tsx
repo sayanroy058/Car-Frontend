@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -88,7 +88,7 @@ function Reveal({
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 function Landing() {
-  const { listings } = useApp();
+  const { listings, reviews } = useApp();
   const nav = useNavigate();
   const featured = listings.filter((l) => l.status === "listed").slice(0, 6);
   const heroListing = featured[0] ?? listings[0];
@@ -164,26 +164,26 @@ function Landing() {
     },
   ];
 
-  const testimonials = [
-    {
-      name: "Priya R.",
-      role: "Sold a hatchback",
-      text: "Sold my old car in 36 hours. The inspection came to my home and payment hit my account the same day.",
-      rating: 5,
-    },
-    {
-      name: "Marcus B.",
-      role: "Bought a Polestar 2",
-      text: "The refurbishment was honestly better than the demo car at the dealership. Felt brand new.",
-      rating: 5,
-    },
-    {
-      name: "Lina K.",
-      role: "Financed in minutes",
-      text: "Financing was approved while I was still browsing. Picked up the keys two days later. Incredible.",
-      rating: 5,
-    },
-  ];
+  // Real customer reviews, most recent first. Reviews are now fetched into the
+  // store, so this replaces the placeholder testimonials that used to be here.
+  // Falls back to nothing rather than inventing quotes.
+  const testimonials = useMemo(() => {
+    const byListing = new Map(listings.map((l) => [l.id, l]));
+    return [...reviews]
+      .filter((r) => r.rating >= 4 && r.body.length > 40)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 3)
+      .map((r) => {
+        const l = byListing.get(r.listingId);
+        return {
+          name: r.name,
+          role: l ? `Bought a ${l.brand} ${l.model}` : "Verified buyer",
+          text: r.body,
+          rating: r.rating,
+          listingId: r.listingId,
+        };
+      });
+  }, [reviews, listings]);
 
   const faqs = [
     {
@@ -759,6 +759,8 @@ function Landing() {
       {/* ============================================================ */}
       {/* TESTIMONIALS                                                 */}
       {/* ============================================================ */}
+      {/* Rendered only when there are real reviews to show. */}
+      {testimonials.length > 0 && (
       <section className="container mx-auto px-4 py-20">
         <Reveal>
           <div className="mx-auto max-w-2xl text-center">
@@ -775,7 +777,7 @@ function Landing() {
 
         <div className="mt-12 grid gap-6 md:grid-cols-3">
           {testimonials.map((t, i) => (
-            <Reveal key={t.name} delay={i * 100}>
+            <Reveal key={`${t.name}-${i}`} delay={i * 100}>
               <div className="group relative h-full rounded-3xl border border-border/60 bg-card p-7 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl">
                 {i === 0 && (
                   <div className="absolute -right-3 -top-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
@@ -799,12 +801,20 @@ function Landing() {
                     <div className="text-sm font-semibold">{t.name}</div>
                     <div className="text-xs text-muted-foreground">{t.role}</div>
                   </div>
+                  <Link
+                    to="/buy/$id"
+                    params={{ id: t.listingId }}
+                    className="ml-auto text-xs text-primary hover:underline"
+                  >
+                    View car
+                  </Link>
                 </div>
               </div>
             </Reveal>
           ))}
         </div>
       </section>
+      )}
 
       {/* ============================================================ */}
       {/* TRUST BAR                                                    */}
