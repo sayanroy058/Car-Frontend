@@ -190,28 +190,31 @@ ride-redefined-io/
 |---|---|---|
 | `GET` | `/api/auth/me` | Current user profile |
 | `PATCH` | `/api/auth/profile` | Update name/phone |
-| `POST` | `/api/listings` | Create listing |
-| `PATCH` | `/api/listings/:id` | Update listing (status, pricing, etc.) |
-| `POST` | `/api/upload` | Upload images (multipart, 20 files max, 10MB each) |
-| `GET` | `/api/offers?listingId=:id` | Get offers |
-| `POST` | `/api/offers` | Create offer |
-| `PATCH` | `/api/offers/:id` | Update offer (state, counterAmount) |
-| `GET` | `/api/bookings?userId=:id` | Get bookings |
+| `POST` | `/api/listings` | Create listing (always starts `pending_review`) |
+| `PATCH` | `/api/listings/:id` | Update your own; `status`/`pricing`/`featured`/promotion are admin-only |
+| `POST` | `/api/upload` | Upload images (multipart, 20 files max, 10MB each, magic-byte verified) |
+| `GET` | `/api/offers?listingId=:id` | Offers you made or received; per-listing needs seller/admin |
+| `POST` | `/api/offers` | Create offer (buyer taken from token) |
+| `PATCH` | `/api/offers/:id` | Accept/counter/decline — seller or admin |
+| `GET` | `/api/bookings` | Your bookings (all for admins) |
 | `POST` | `/api/bookings` | Create booking |
-| `PATCH` | `/api/bookings/:id` | Update booking status |
-| `GET` | `/api/tickets` | Get tickets |
+| `PATCH` | `/api/bookings/:id` | Update your own booking |
+| `GET` | `/api/tickets` | Your tickets (all for admins) |
 | `POST` | `/api/tickets` | Create ticket |
-| `PATCH` | `/api/tickets/:id` | Update ticket status |
+| `PATCH` | `/api/tickets/:id` | Edit your own; `status` is admin-only |
 | `POST` | `/api/reviews` | Add review |
-| `GET` | `/api/conversations?userId=:id` | Get conversations |
+| `GET` | `/api/conversations` | Your conversations (all for admins) |
 | `POST` | `/api/conversations` | Start conversation |
 | `POST` | `/api/conversations/:id/messages` | Send message |
 | `POST` | `/api/conversations/:id/read` | Mark as read |
-| `GET` | `/api/saved-searches` | Get saved searches |
+| `GET` | `/api/saved-searches` | Your saved searches |
 | `POST` | `/api/saved-searches` | Create saved search |
-| `DELETE` | `/api/saved-searches/:id` | Delete saved search |
-| `GET` | `/api/wishlist?userId=:id` | Get wishlist |
+| `DELETE` | `/api/saved-searches/:id` | Delete one of your own |
+| `GET` | `/api/wishlist` | Your wishlist |
 | `POST` | `/api/wishlist/:listingId` | Toggle wishlist |
+
+Ownership is always derived from the JWT — no endpoint accepts a client-supplied
+`userId`.
 
 ---
 
