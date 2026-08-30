@@ -280,10 +280,26 @@ Ownership is always derived from the JWT — no endpoint accepts a client-suppli
 
 ### State Management
 - **React Context** for auth + entity state
-- **TanStack Query** for server data fetching on route load
+- **TanStack Query** for public listing data (route loaders + `useListing`)
+- **User-scoped data** (offers, bookings, tickets, conversations, wishlist, saved
+  searches) is loaded by the store once the session is known, so nothing depends
+  on a client-supplied `userId`
 - **Optimistic updates** — UI updates instantly, API persists in background
 - **Automatic revert** on API failure for creates (offers, bookings, tickets, reviews, conversations)
-- **All mutations wired to backend** — nothing is local-only anymore
+- **All mutations wired to backend** — wishlist and saved searches persist
+  server-side and follow the user across devices
+- **Theme** — light / dark / system; "system" keeps tracking the OS setting via
+  a `matchMedia` listener rather than resolving once
+
+### Data honesty
+The detail page renders only what a listing actually carries. Specifications come
+from the catalogue at submission time, features from the seller's declaration,
+and condition from the seller's ratings and free-text defects. There is no
+inspection programme wired up yet, so the previous fabricated inspection score,
+fixed defect list and fixed service log were removed rather than left in place —
+the `/buy/:id/inspection` and `/buy/:id/defects` routes now redirect to the
+seller-declared vehicle summary. Homepage testimonials come from real reviews and
+the section hides itself when there are none.
 
 ---
 
