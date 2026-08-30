@@ -82,7 +82,13 @@ export async function apiGetMe(): Promise<User> {
 }
 
 export async function apiUpdateProfile(
-  patch: { name?: string; phone?: string },
+  patch: {
+    name?: string;
+    phone?: string;
+    avatarUrl?: string;
+    firmName?: string;
+    firmLogoUrl?: string;
+  },
 ): Promise<User> {
   const { user } = await request<{ user: User }>("/auth/profile", {
     method: "PATCH",
@@ -177,6 +183,19 @@ export async function getReviews(listingId: string): Promise<Review[]> {
   return reviews;
 }
 
+/**
+ * Reviews for several listings at once. The API is per-listing, so these are
+ * fetched in parallel and flattened; a failure for one listing does not block
+ * the rest. Used to populate the store so ratings show on cards and the
+ * homepage, not only inside a detail tab.
+ */
+export async function getReviewsForListings(
+  listingIds: string[],
+): Promise<Review[]> {
+  const results = await Promise.allSettled(listingIds.map((id) => getReviews(id)));
+  return results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+}
+
 export async function addReview(
   r: Omit<Review, "id" | "createdAt">,
 ): Promise<Review> {
@@ -191,10 +210,12 @@ export async function addReview(
 // Offers
 // ---------------------------------------------------------------------------
 
+/**
+ * Offers. Without a listingId this returns the caller's own offers plus offers
+ * received on their listings; admins get everything. Scoped server-side.
+ */
 export async function getOffers(listingId?: string): Promise<Offer[]> {
-  const url = listingId
-    ? `/offers?listingId=${listingId}`
-    : "/offers";
+  const url = listingId ? `/offers?listingId=${listingId}` : "/offers";
   const { offers } = await request<{ offers: Offer[] }>(url);
   return offers;
 }
@@ -233,11 +254,9 @@ export async function updateOffer(
 // Bookings
 // ---------------------------------------------------------------------------
 
-export async function getBookings(userId?: string): Promise<Booking[]> {
-  const url = userId
-    ? `/bookings?userId=${userId}`
-    : "/bookings";
-  const { bookings } = await request<{ bookings: Booking[] }>(url);
+/** Bookings for the caller; all bookings when the caller is an admin. */
+export async function getBookings(): Promise<Booking[]> {
+  const { bookings } = await request<{ bookings: Booking[] }>("/bookings");
   return bookings;
 }
 
@@ -266,9 +285,9 @@ export async function patchBooking(
 // Tickets
 // ---------------------------------------------------------------------------
 
-export async function getTickets(userId?: string): Promise<Ticket[]> {
-  const url = userId ? `/tickets?userId=${userId}` : "/tickets";
-  const { tickets } = await request<{ tickets: Ticket[] }>(url);
+/** Tickets raised by the caller; all tickets when the caller is an admin. */
+export async function getTickets(): Promise<Ticket[]> {
+  const { tickets } = await request<{ tickets: Ticket[] }>("/tickets");
   return tickets;
 }
 
@@ -297,13 +316,13 @@ export async function patchTicket(
 // Conversations
 // ---------------------------------------------------------------------------
 
-export async function getConversations(
-  userId?: string,
-  opts?: { all?: boolean },
-): Promise<Conversation[]> {
-  const qs = opts?.all ? "all=true" : `userId=${userId}`;
+/**
+ * Conversations for the signed-in user (all of them when the caller is an
+ * admin). Scope is derived server-side from the bearer token.
+ */
+export async function getConversations(): Promise<Conversation[]> {
   const { conversations } = await request<{ conversations: Conversation[] }>(
-    `/conversations?${qs}`,
+    "/conversations",
   );
   return conversations.map((c) => ({
     ...c,
@@ -327,11 +346,11 @@ export async function getConversation(
 
 export async function startConversation(args: {
   listingId: string;
-  buyerId: string;
   sellerId: string;
   sellerName: string;
   listingTitle: string;
 }): Promise<Conversation> {
+  // The buyer is the authenticated caller; the server ignores any client-sent id.
   const { conversation } = await request<{ conversation: Conversation }>(
     "/conversations",
     {
@@ -345,22 +364,15 @@ export async function startConversation(args: {
 export async function sendMessage(
   conversationId: string,
   m: Omit<Message, "id" | "createdAt">,
-  _sellerId: string,
 ): Promise<void> {
   await request(`/conversations/${conversationId}/messages`, {
     method: "POST",
-    body: JSON.stringify({ ...m, mine: m.mine ? 1 : 0 }),
+    body: JSON.stringify({ senderName: m.senderName, text: m.text }),
   });
 }
 
-export async function markConversationRead(
-  id: string,
-  userId: string,
-): Promise<void> {
-  await request(`/conversations/${id}/read`, {
-    method: "POST",
-    body: JSON.stringify({ userId }),
-  });
+export async function markConversationRead(id: string): Promise<void> {
+  await request(`/conversations/${id}/read`, { method: "POST" });
 }
 
 // ---------------------------------------------------------------------------
@@ -408,24 +420,15 @@ export async function removeSavedSearch(id: string): Promise<void> {
   await request(`/saved-searches/${id}`, { method: "DELETE" });
 }
 
-export async function toggleWishlist(
-  userId: string,
-  listingId: string,
-): Promise<boolean> {
-  const { added } = await request<{ added: boolean }>(
-    `/wishlist/${listingId}`,
-    {
-      method: "POST",
-      body: JSON.stringify({ userId }),
-    },
-  );
+export async function toggleWishlist(listingId: string): Promise<boolean> {
+  const { added } = await request<{ added: boolean }>(`/wishlist/${listingId}`, {
+    method: "POST",
+  });
   return added;
 }
 
-export async function getWishlist(userId: string): Promise<string[]> {
-  const { wishlist } = await request<{ wishlist: string[] }>(
-    `/wishlist?userId=${userId}`,
-  );
+export async function getWishlist(): Promise<string[]> {
+  const { wishlist } = await request<{ wishlist: string[] }>("/wishlist");
   return wishlist;
 }
 

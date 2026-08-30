@@ -1,34 +1,28 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, ArrowRight, Briefcase, Camera, Check, Loader2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Briefcase, Camera, Check, Info, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import { Seo } from "@/components/site/Seo";
+import {
+  HighlightPicker,
+  NumberField,
+  SelectField,
+  TextField,
+  TextareaField,
+} from "@/components/site/FormFields";
 import { useApp } from "@/lib/store";
 import { BRANDS, BODY_TYPES, FUEL_TYPES, OWNERSHIP, STATES, TRANSMISSIONS } from "@/lib/constants";
+import { POPULAR_BRANDS, modelNamesFor, resolveSpecs, variantNamesFor } from "@/lib/catalogue";
+import { HIGHLIGHT_OPTIONS } from "@/lib/highlights";
+import { citiesFor, stateFromRegistrationNumber } from "@/lib/regions";
 import { sellSchema, type SellValues } from "@/lib/validations";
 import { uploadImages, createListing, assetUrl } from "@/lib/api";
-import type { Listing } from "@/lib/types";
 
 export const Route = createFileRoute("/agent/sell")({
   component: AgentSell,
@@ -39,6 +33,7 @@ const STEPS = [
   "Vehicle basics",
   "Specifications",
   "Condition & defects",
+  "Features",
   "Pricing & submit",
 ] as const;
 
@@ -51,6 +46,7 @@ const STEP_FIELDS: string[][] = [
     "bodyType",
     "year",
     "registrationYear",
+    "registrationNumber",
     "registrationState",
     "registrationCity",
   ],
@@ -75,8 +71,12 @@ const STEP_FIELDS: string[][] = [
     "defects",
     "modifications",
   ],
+  ["highlights"],
   ["expectedPrice", "description"],
 ];
+
+/** Keys are a short pick list rather than a free number field. */
+const KEY_OPTIONS = ["1", "2", "3", "4"];
 
 const CAR_IMAGES: string[] = [
   assetUrl("/uploads/fallback-0.jpg"),

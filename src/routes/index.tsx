@@ -26,6 +26,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -40,6 +41,7 @@ import { CarCard, formatPriceShort } from "@/components/site/CarCard";
 import { Seo } from "@/components/site/Seo";
 import { Badge } from "@/components/ui/badge";
 import { BRANDS, BODY_TYPES } from "@/lib/constants";
+import { POPULAR_BRANDS } from "@/lib/catalogue";
 
 export const Route = createFileRoute("/")({
   component: Landing,
@@ -242,7 +244,10 @@ function Landing() {
           <div className="grid items-center gap-12 lg:grid-cols-[1.15fr_0.85fr]">
             {/* Left: copy + search */}
             <div className="max-w-2xl text-foreground">
-              <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/60 px-4 py-1.5 text-xs font-medium backdrop-blur-md">
+              {/* Surfaces use theme tokens (card/border) rather than hardcoded
+                  white/black, so they follow light and dark mode. Previously
+                  bg-white + text-foreground rendered white-on-white in dark. */}
+              <div className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/70 px-4 py-1.5 text-xs font-medium backdrop-blur-md">
                 <span className="relative flex h-2 w-2">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
@@ -265,14 +270,23 @@ function Landing() {
               </p>
 
               {/* Search card */}
-              <div className="animate-fade-in-up delay-300 mt-8 rounded-2xl border border-black/10 bg-white/70 p-2 backdrop-blur-xl shadow-2xl">
+              <div className="animate-fade-in-up delay-300 mt-8 rounded-2xl border border-border/60 bg-card/80 p-2 backdrop-blur-xl shadow-2xl">
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
                   <Select value={brand || undefined} onValueChange={setBrand}>
-                    <SelectTrigger className="h-12 border-black/10 bg-white/80 text-foreground shadow-none">
+                    <SelectTrigger className="h-12 border-border/60 bg-background/80 text-foreground shadow-none">
                       <SelectValue placeholder="Any brand" />
                     </SelectTrigger>
-                    <SelectContent>
-                      {BRANDS.slice(0, 10).map((b) => (
+                    <SelectContent className="max-h-72">
+                      {/* Most-searched brands first, then the rest A–Z. */}
+                      {POPULAR_BRANDS.map((b) => (
+                        <SelectItem key={b} value={b}>
+                          {b}
+                        </SelectItem>
+                      ))}
+                      <SelectSeparator />
+                      {BRANDS.filter(
+                        (b) => !POPULAR_BRANDS.includes(b as (typeof POPULAR_BRANDS)[number]),
+                      ).map((b) => (
                         <SelectItem key={b} value={b}>
                           {b}
                         </SelectItem>
@@ -280,7 +294,7 @@ function Landing() {
                     </SelectContent>
                   </Select>
                   <Select value={body || undefined} onValueChange={setBody}>
-                    <SelectTrigger className="h-12 border-black/10 bg-white/80 text-foreground shadow-none">
+                    <SelectTrigger className="h-12 border-border/60 bg-background/80 text-foreground shadow-none">
                       <SelectValue placeholder="Body type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -292,7 +306,7 @@ function Landing() {
                     </SelectContent>
                   </Select>
                   <Select value={budget || undefined} onValueChange={setBudget}>
-                    <SelectTrigger className="h-12 border-black/10 bg-white/80 text-foreground shadow-none">
+                    <SelectTrigger className="h-12 border-border/60 bg-background/80 text-foreground shadow-none">
                       <SelectValue placeholder="Budget" />
                     </SelectTrigger>
                     <SelectContent>
@@ -323,7 +337,7 @@ function Landing() {
                   asChild
                   size="lg"
                   variant="ghost"
-                  className="gap-1.5 border border-black/15 text-foreground hover:bg-black/5 hover:text-foreground"
+                  className="gap-1.5 border border-border/60 text-foreground hover:bg-secondary hover:text-foreground"
                 >
                   <Link to="/sell">Sell your car</Link>
                 </Button>
@@ -332,7 +346,7 @@ function Landing() {
 
             {/* Right: floating featured card */}
             <div className="relative hidden lg:block">
-              <div className="animate-fade-in delay-300 animate-float overflow-hidden rounded-3xl border border-black/10 bg-white/80 backdrop-blur-xl shadow-2xl">
+              <div className="animate-fade-in delay-300 animate-float overflow-hidden rounded-3xl border border-border/60 bg-card/90 backdrop-blur-xl shadow-2xl">
                 {heroListing?.images?.[0] && (
                   <div className="relative aspect-[4/3] overflow-hidden">
                     <img

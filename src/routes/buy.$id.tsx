@@ -45,6 +45,7 @@ import { DetailSkeleton } from "@/components/site/Skeletons";
 import { Seo } from "@/components/site/Seo";
 import { Lightbox } from "@/components/site/Lightbox";
 import { emiEstimate, ADMIN_ID, ADMIN_NAME } from "@/lib/constants";
+import { HIGHLIGHT_OPTIONS } from "@/lib/highlights";
 import { getListing, getSimilar } from "@/lib/api";
 import { qk } from "@/lib/queries";
 import { startConversation } from "@/lib/api";
@@ -117,7 +118,6 @@ function VehicleDetail() {
     try {
       const conv = await startConversation({
         listingId: listing!.id,
-        buyerId: user.id,
         sellerId: ADMIN_ID,
         sellerName: ADMIN_NAME,
         listingTitle: `${listing!.year} ${listing!.brand} ${listing!.model}`,
@@ -136,20 +136,17 @@ function VehicleDetail() {
   const fav = wishlist.includes(listing.id);
   const inCompare = compare.includes(listing.id);
 
-  const highlightTags = useMemo(
-    () => [
-      "Sunroof",
-      "Apple CarPlay",
-      "Android Auto",
-      "360° Camera",
-      "Ventilated seats",
-      "ADAS Level 2",
-      "Premium audio",
-      "Wireless charging",
-      "LED Matrix headlamps",
-    ],
-    [],
-  );
+  // Seller-declared features, verified during inspection. Previously this was a
+  // fixed nine-tag array rendered identically for every car.
+  const highlightTags = useMemo(() => listing.highlights ?? [], [listing.highlights]);
+
+  // Same highlights, bucketed under their catalogue group for the Features tab.
+  const featureGroups = useMemo(() => {
+    const selected = new Set(listing.highlights ?? []);
+    return Object.entries(HIGHLIGHT_OPTIONS)
+      .map(([group, options]) => [group, options.filter((o) => selected.has(o))] as const)
+      .filter(([, items]) => items.length > 0);
+  }, [listing.highlights]);
   const inspectionScore = useMemo(
     () => (8.6 + (listing.id.charCodeAt(0) % 10) / 20).toFixed(1),
     [listing.id],
@@ -366,13 +363,19 @@ function VehicleDetail() {
                 </div>
                 <div>
                   <h3 className="mb-2 text-sm font-semibold">Highlights</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {highlightTags.map((f) => (
-                      <Badge key={f} variant="outline">
-                        {f}
-                      </Badge>
-                    ))}
-                  </div>
+                  {highlightTags.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {highlightTags.map((f) => (
+                        <Badge key={f} variant="outline">
+                          {f}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      The seller hasn't listed specific features for this car yet.
+                    </p>
+                  )}
                 </div>
               </TabsContent>
 
@@ -385,6 +388,7 @@ function VehicleDetail() {
                       ["Variant", listing.variant],
                       ["Manufacturing year", listing.year],
                       ["Registration year", listing.registrationYear],
+                      ["Registration number", listing.registrationNumber],
                       ["VIN / Chassis", listing.vin],
                       ["Body type", listing.bodyType],
                       ["Registration state", listing.registrationState],
@@ -395,16 +399,28 @@ function VehicleDetail() {
                   />
                 </Section>
                 <Section title="Engine & performance">
+                  {/* Every figure comes from the listing. Missing values render
+                      as an em dash rather than a fabricated placeholder. */}
                   <SpecGrid
                     items={[
                       ["Fuel type", listing.fuelType],
                       ["Transmission", listing.transmission],
-                      ["Kilometers driven", `${listing.kmDriven.toLocaleString()} km`],
-                      ["Mileage (est.)", listing.fuelType === "Electric" ? "—" : "14–18 km/l"],
-                      ["Drivetrain", "AWD / FWD"],
-                      ["Engine displacement", "1998 cc"],
-                      ["Max power", "190 bhp @ 5000 rpm"],
-                      ["Max torque", "320 Nm @ 2000 rpm"],
+                      ["Kilometers driven", `${listing.kmDriven.toLocaleString("en-IN")} km`],
+                      [
+                        "Mileage (claimed)",
+                        listing.mileageKmpl ? `${listing.mileageKmpl} kmpl` : undefined,
+                      ],
+                      ["Drivetrain", listing.driveTrain],
+                      [
+                        "Engine displacement",
+                        listing.displacementCc === 0
+                          ? "Electric motor"
+                          : listing.displacementCc
+                            ? `${listing.displacementCc.toLocaleString("en-IN")} cc`
+                            : undefined,
+                      ],
+                      ["Max power", formatPower(listing.maxPowerBhp, listing.maxPowerRpm)],
+                      ["Max torque", formatTorque(listing.maxTorqueNm, listing.maxTorqueRpm)],
                     ]}
                   />
                 </Section>
@@ -419,36 +435,67 @@ function VehicleDetail() {
                     ]}
                   />
                 </Section>
+                <Section title="Safety">
+                  <SpecGrid items={[["Airbags", listing.airbags]]} />
+                </Section>
                 <Section title="Dimensions & capacity">
                   <SpecGrid
                     items={[
-                      ["Seating", "5 adults"],
-                      ["Boot space", "455 L"],
-                      ["Fuel tank", "60 L"],
-                      ["Ground clearance", "165 mm"],
-                      ["Length × Width × Height", "4,690 × 1,850 × 1,450 mm"],
-                      ["Wheelbase", "2,820 mm"],
+                      ["Seating", listing.seating ? `${listing.seating} adults` : undefined],
+                      ["Boot space", listing.bootSpaceL ? `${listing.bootSpaceL} L` : undefined],
+                      ["Fuel tank", listing.fuelTankL ? `${listing.fuelTankL} L` : undefined],
+                      [
+                        "Ground clearance",
+                        listing.groundClearanceMm ? `${listing.groundClearanceMm} mm` : undefined,
+                      ],
+                      [
+                        "Length × Width × Height",
+                        formatDimensions(listing.lengthMm, listing.widthMm, listing.heightMm),
+                      ],
+                      [
+                        "Wheelbase",
+                        listing.wheelbaseMm
+                          ? `${listing.wheelbaseMm.toLocaleString("en-IN")} mm`
+                          : undefined,
+                      ],
                     ]}
                   />
                 </Section>
               </TabsContent>
 
               <TabsContent value="features" className="pt-4 space-y-6">
-                {Object.entries(FEATURES_BY_GROUP).map(([group, items]) => (
-                  <Section key={group} title={group}>
-                    <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                      {items.map((f) => (
-                        <div
-                          key={f}
-                          className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm"
-                        >
-                          <CheckCircle2 className="h-4 w-4 flex-none text-success" />
-                          {f}
-                        </div>
-                      ))}
+                {/* Grouped from the seller's declared highlights — previously a
+                    static list identical on every listing. */}
+                {featureGroups.length > 0 ? (
+                  featureGroups.map(([group, items]) => (
+                    <Section key={group} title={group}>
+                      <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+                        {items.map((f) => (
+                          <div
+                            key={f}
+                            className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm"
+                          >
+                            <CheckCircle2 className="h-4 w-4 flex-none text-success" />
+                            {f}
+                          </div>
+                        ))}
+                      </div>
+                    </Section>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No features have been declared for this car yet. Ask the seller via
+                    chat, or check the inspection report once it's published.
+                  </p>
+                )}
+                {listing.airbags != null && (
+                  <Section title="Safety">
+                    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card px-3 py-2 text-sm">
+                      <CheckCircle2 className="h-4 w-4 flex-none text-success" />
+                      {listing.airbags} airbags
                     </div>
                   </Section>
-                ))}
+                )}
               </TabsContent>
 
               <TabsContent value="inspection" className="pt-4 space-y-4">
@@ -756,17 +803,49 @@ function VehicleDetail() {
   );
 }
 
-function SpecGrid({ items }: { items: Array<[string, string | number]> }) {
+/**
+ * Renders label/value pairs, skipping nothing but showing an em dash where the
+ * listing has no value — so a missing figure reads as "unknown" rather than
+ * silently displaying someone else's number.
+ */
+function SpecGrid({ items }: { items: Array<[string, string | number | undefined | null]> }) {
   return (
     <div className="grid gap-x-6 gap-y-2 sm:grid-cols-2">
-      {items.map(([k, v]) => (
-        <div key={k} className="flex justify-between border-b border-border/60 py-2 text-sm">
-          <span className="text-muted-foreground">{k}</span>
-          <span className="text-right font-medium">{String(v)}</span>
-        </div>
-      ))}
+      {items.map(([k, v]) => {
+        const empty = v === undefined || v === null || v === "";
+        return (
+          <div key={k} className="flex justify-between border-b border-border/60 py-2 text-sm">
+            <span className="text-muted-foreground">{k}</span>
+            <span
+              className={
+                empty ? "text-right text-muted-foreground" : "text-right font-medium"
+              }
+            >
+              {empty ? "—" : String(v)}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
+}
+
+/** "158 bhp @ 5,500 rpm", or just "158 bhp" when no peak rpm is quoted. */
+function formatPower(bhp?: number, rpm?: number): string | undefined {
+  if (!bhp) return undefined;
+  return rpm ? `${bhp} bhp @ ${rpm.toLocaleString("en-IN")} rpm` : `${bhp} bhp`;
+}
+
+/** "250 Nm @ 1,500 rpm", or just "250 Nm" for electric motors. */
+function formatTorque(nm?: number, rpm?: number): string | undefined {
+  if (!nm) return undefined;
+  return rpm ? `${nm} Nm @ ${rpm.toLocaleString("en-IN")} rpm` : `${nm} Nm`;
+}
+
+function formatDimensions(l?: number, w?: number, h?: number): string | undefined {
+  if (!l || !w || !h) return undefined;
+  const f = (n: number) => n.toLocaleString("en-IN");
+  return `${f(l)} × ${f(w)} × ${f(h)} mm`;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -780,57 +859,3 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-const FEATURES_BY_GROUP: Record<string, string[]> = {
-  Safety: [
-    "6 Airbags",
-    "ABS with EBD",
-    "Electronic Stability Program",
-    "Hill-hold assist",
-    "ISOFIX child seat mounts",
-    "Tire pressure monitor",
-    "360° surround camera",
-    "Blind-spot monitor",
-    "Lane-keep assist",
-    "Forward collision warning",
-  ],
-  "Comfort & convenience": [
-    "Dual-zone climate control",
-    "Ventilated front seats",
-    "Electric driver seat memory",
-    "Auto-dimming IRVM",
-    "Rain-sensing wipers",
-    "Auto LED headlamps",
-    "Push-button start",
-    "Cruise control",
-    "Hands-free tailgate",
-    "Wireless phone charger",
-  ],
-  Infotainment: [
-    '10.25" touchscreen',
-    "Wireless Apple CarPlay",
-    "Wireless Android Auto",
-    "12-speaker premium audio",
-    "Bluetooth 5.0",
-    "Voice assistant",
-    "Connected car app",
-    "OTA updates",
-  ],
-  Exterior: [
-    "LED Matrix headlamps",
-    "LED DRLs",
-    "Panoramic sunroof",
-    '18" alloy wheels',
-    "Roof rails",
-    "Shark-fin antenna",
-    "Auto-folding ORVMs",
-  ],
-  Interior: [
-    "Leatherette upholstery",
-    "Ambient lighting (64 colors)",
-    "Cooled glovebox",
-    "60:40 split rear seat",
-    "Rear AC vents",
-    "USB-C charging (4)",
-    "Wireless smart key",
-  ],
-};

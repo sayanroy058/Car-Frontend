@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Filter, Scale, Search, SlidersHorizontal, X } from "lucide-react";
 import { z } from "zod";
 import { toast } from "sonner";
@@ -15,16 +15,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-import { CarCard, formatPrice } from "@/components/site/CarCard";
+import { CarCard, formatPrice, isPromoted } from "@/components/site/CarCard";
 import { EmptyState } from "@/components/site/States";
 import { ListingGridSkeleton } from "@/components/site/Skeletons";
 import { Seo } from "@/components/site/Seo";
 import { BODY_TYPES, BRANDS, FUEL_TYPES, OWNERSHIP, STATES, TRANSMISSIONS } from "@/lib/constants";
+import { POPULAR_BRANDS } from "@/lib/catalogue";
 import { useApp } from "@/lib/store";
 import { getListings } from "@/lib/api";
 import { qk } from "@/lib/queries";
 
 const PAGE_SIZE = 9;
+
+/**
+ * Filter bounds. The year ceiling tracks the calendar rather than a hardcoded
+ * 2024, which previously made newer listings unreachable by the filter.
+ */
+const YEAR_MIN = 2010;
+const YEAR_MAX = new Date().getFullYear() + 1;
+const PRICE_MIN = 0;
+const PRICE_MAX = 10000000;
+const KM_MIN = 0;
+const KM_MAX = 200000;
 
 const arr = z.preprocess((v) => {
   if (v == null || v === "") return [];
@@ -87,16 +99,20 @@ function BuyPage() {
 
   const price: [number, number] = useMemo(() => {
     if (search.priceMin != null || search.priceMax != null)
-      return [search.priceMin ?? 0, search.priceMax ?? 10000000];
+      return [search.priceMin ?? PRICE_MIN, search.priceMax ?? PRICE_MAX];
     if (budget === "0-1000000") return [0, 1000000];
     if (budget === "1000000-2500000") return [1000000, 2500000];
     if (budget === "2500000-5000000") return [2500000, 5000000];
     if (budget === "5000000+") return [5000000, 100000000];
-    return [0, 10000000];
+    return [PRICE_MIN, PRICE_MAX];
   }, [search.priceMin, search.priceMax, budget]);
-  const year: [number, number] = [search.yearMin ?? 2015, search.yearMax ?? 2024];
-  const km: [number, number] = [search.kmMin ?? 0, search.kmMax ?? 150000];
+  const year: [number, number] = [search.yearMin ?? YEAR_MIN, search.yearMax ?? YEAR_MAX];
+  const km: [number, number] = [search.kmMin ?? KM_MIN, search.kmMax ?? KM_MAX];
 
+  /**
+   * Filters are URL state. `replace: true` keeps the back button usable — each
+   * slider nudge used to push a new history entry.
+   */
   function patch(partial: Record<string, unknown>) {
     const next: Record<string, unknown> = { ...search, ...partial };
     Object.keys(next).forEach((k) => {
@@ -104,7 +120,7 @@ function BuyPage() {
       if (Array.isArray(v) && v.length === 0) delete next[k];
       if (v === "" || v == null) delete next[k];
     });
-    nav({ search: next, resetScroll: false });
+    nav({ search: next, resetScroll: false, replace: true });
   }
 
   const toggleArr = (key: string, val: string, arr2: string[]) => {
@@ -113,6 +129,24 @@ function BuyPage() {
     else set.add(val);
     patch({ [key]: [...set], page: undefined });
   };
+
+  // Search box: typed locally, pushed to the URL after a short pause so each
+  // keystroke does not trigger a navigation and re-render.
+  const [queryText, setQueryText] = useState(q);
+  const queryRef = useRef(q);
+  queryRef.current = q;
+
+  useEffect(() => {
+    setQueryText(q);
+  }, [q]);
+
+  useEffect(() => {
+    if (queryText === queryRef.current) return;
+    const t = setTimeout(() => {
+      patch({ q: queryText || undefined, page: undefined });
+    }, 300);
+    return () => clearTimeout(t);
+  }, [queryText]);
 
   const inventory = listings.filter((l) => l.status === "listed" || l.status === "approved");
 
@@ -133,6 +167,11 @@ function BuyPage() {
       return true;
     });
     r = [...r].sort((a, b) => {
+      // Promoted ("Assured") listings lead every ordering, mirroring the API.
+      const pa2 = isPromoted(a) ? 1 : 0;
+      const pb2 = isPromoted(b) ? 1 : 0;
+      if (pa2 !== pb2) return pb2 - pa2;
+
       const pa = a.pricing?.finalPrice ?? a.expectedPrice;
       const pb = b.pricing?.finalPrice ?? b.expectedPrice;
       if (sort === "price_low") return pa - pb;
@@ -157,15 +196,16 @@ function BuyPage() {
     state.length +
     (q ? 1 : 0) +
     (budget ? 1 : 0) +
-    (price[0] !== 0 || price[1] !== 10000000 ? 1 : 0) +
-    (year[0] !== 2015 || year[1] !== 2024 ? 1 : 0) +
-    (km[0] !== 0 || km[1] !== 150000 ? 1 : 0);
+    (price[0] !== PRICE_MIN || price[1] !== PRICE_MAX ? 1 : 0) +
+    (year[0] !== YEAR_MIN || year[1] !== YEAR_MAX ? 1 : 0) +
+    (km[0] !== KM_MIN || km[1] !== KM_MAX ? 1 : 0);
 
   const filters = (
     <div className="space-y-6">
       <FilterGroup
         title="Brand"
         options={BRANDS}
+        pinned={POPULAR_BRANDS}
         values={brand}
         onChange={(v) => patch({ brand: v, page: undefined })}
       />
@@ -200,53 +240,37 @@ function BuyPage() {
         onChange={(v) => patch({ state: v, page: undefined })}
       />
 
-      <div>
-        <div className="mb-2 flex justify-between text-sm font-medium">
-          <span>Price</span>
-          <span className="text-muted-foreground">
-            {formatPrice(price[0])} – {formatPrice(price[1])}
-          </span>
-        </div>
-        <Slider
-          min={0}
-          max={10000000}
-          step={50000}
-          value={price}
-          onValueChange={(v) =>
-            patch({ priceMin: v[0], priceMax: v[1], budget: undefined, page: undefined })
-          }
-        />
-      </div>
-      <div>
-        <div className="mb-2 flex justify-between text-sm font-medium">
-          <span>Year</span>
-          <span className="text-muted-foreground">
-            {year[0]} – {year[1]}
-          </span>
-        </div>
-        <Slider
-          min={2015}
-          max={2024}
-          step={1}
-          value={year}
-          onValueChange={(v) => patch({ yearMin: v[0], yearMax: v[1], page: undefined })}
-        />
-      </div>
-      <div>
-        <div className="mb-2 flex justify-between text-sm font-medium">
-          <span>Kilometers</span>
-          <span className="text-muted-foreground">
-            {km[0].toLocaleString()} – {km[1].toLocaleString()}
-          </span>
-        </div>
-        <Slider
-          min={0}
-          max={150000}
-          step={5000}
-          value={km}
-          onValueChange={(v) => patch({ kmMin: v[0], kmMax: v[1], page: undefined })}
-        />
-      </div>
+      {/* Sliders commit on release, not during the drag — continuous
+          navigation used to re-render the whole page mid-gesture. */}
+      <RangeFilter
+        label="Price"
+        min={PRICE_MIN}
+        max={PRICE_MAX}
+        step={50000}
+        value={price}
+        format={(v) => `${formatPrice(v[0])} – ${formatPrice(v[1])}`}
+        onCommit={(v) =>
+          patch({ priceMin: v[0], priceMax: v[1], budget: undefined, page: undefined })
+        }
+      />
+      <RangeFilter
+        label="Year"
+        min={YEAR_MIN}
+        max={YEAR_MAX}
+        step={1}
+        value={year}
+        format={(v) => `${v[0]} – ${v[1]}`}
+        onCommit={(v) => patch({ yearMin: v[0], yearMax: v[1], page: undefined })}
+      />
+      <RangeFilter
+        label="Kilometers"
+        min={KM_MIN}
+        max={KM_MAX}
+        step={5000}
+        value={km}
+        format={(v) => `${v[0].toLocaleString("en-IN")} – ${v[1].toLocaleString("en-IN")}`}
+        onCommit={(v) => patch({ kmMin: v[0], kmMax: v[1], page: undefined })}
+      />
     </div>
   );
 
@@ -267,11 +291,12 @@ function BuyPage() {
         <div className="flex gap-2">
           <div className="relative flex-1 md:w-72">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            {/* Debounced: typing used to navigate on every keystroke. */}
             <Input
-              placeholder="Search Tesla, BMW, M340i..."
+              placeholder="Search Swift, Creta, XUV700..."
               className="pl-9"
-              value={q}
-              onChange={(e) => patch({ q: e.target.value || undefined, page: undefined })}
+              value={queryText}
+              onChange={(e) => setQueryText(e.target.value)}
             />
           </div>
           <Select value={sort} onValueChange={(v) => patch({ sort: v, page: undefined })}>
@@ -299,54 +324,64 @@ function BuyPage() {
         </div>
       </div>
 
-      {activeCount > 0 && (
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            {activeCount} active {activeCount === 1 ? "filter" : "filters"}:
-          </span>
-          {brand.map((b) => (
-            <Chip key={`b-${b}`} label={b} onClear={() => toggleArr("brand", b, brand)} />
-          ))}
-          {body.map((b) => (
-            <Chip key={`bd-${b}`} label={b} onClear={() => toggleArr("body", b, body)} />
-          ))}
-          {fuel.map((b) => (
-            <Chip key={`f-${b}`} label={b} onClear={() => toggleArr("fuel", b, fuel)} />
-          ))}
-          {trans.map((b) => (
-            <Chip key={`t-${b}`} label={b} onClear={() => toggleArr("trans", b, trans)} />
-          ))}
-          {own.map((b) => (
-            <Chip key={`o-${b}`} label={b} onClear={() => toggleArr("own", b, own)} />
-          ))}
-          {state.map((b) => (
-            <Chip key={`s-${b}`} label={b} onClear={() => toggleArr("state", b, state)} />
-          ))}
-          {q && <Chip label={`"${q}"`} onClear={() => patch({ q: undefined })} />}
-          {budget && <Chip label={budget} onClear={() => patch({ budget: undefined })} />}
-          {(price[0] !== 0 || price[1] !== 10000000) && (
-            <Chip
-              label={`${formatPrice(price[0])}–${formatPrice(price[1])}`}
-              onClear={() => patch({ priceMin: undefined, priceMax: undefined, budget: undefined })}
-            />
-          )}
-          {(year[0] !== 2015 || year[1] !== 2024) && (
-            <Chip
-              label={`${year[0]}–${year[1]}`}
-              onClear={() => patch({ yearMin: undefined, yearMax: undefined })}
-            />
-          )}
-          {(km[0] !== 0 || km[1] !== 150000) && (
-            <Chip
-              label={`${km[0].toLocaleString()}–${km[1].toLocaleString()} km`}
-              onClear={() => patch({ kmMin: undefined, kmMax: undefined })}
-            />
-          )}
-          <Button size="sm" variant="ghost" onClick={() => nav({ search: {}, resetScroll: false })}>
-            <X className="mr-1 h-3 w-3" /> Clear all
-          </Button>
-        </div>
-      )}
+      {/* Reserved height: this row appears as soon as one filter is active, and
+          used to shove the results grid down (again when chips wrapped). */}
+      <div className="mb-5 min-h-9">
+        {activeCount > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              {activeCount} active {activeCount === 1 ? "filter" : "filters"}:
+            </span>
+            {brand.map((b) => (
+              <Chip key={`b-${b}`} label={b} onClear={() => toggleArr("brand", b, brand)} />
+            ))}
+            {body.map((b) => (
+              <Chip key={`bd-${b}`} label={b} onClear={() => toggleArr("body", b, body)} />
+            ))}
+            {fuel.map((b) => (
+              <Chip key={`f-${b}`} label={b} onClear={() => toggleArr("fuel", b, fuel)} />
+            ))}
+            {trans.map((b) => (
+              <Chip key={`t-${b}`} label={b} onClear={() => toggleArr("trans", b, trans)} />
+            ))}
+            {own.map((b) => (
+              <Chip key={`o-${b}`} label={b} onClear={() => toggleArr("own", b, own)} />
+            ))}
+            {state.map((b) => (
+              <Chip key={`s-${b}`} label={b} onClear={() => toggleArr("state", b, state)} />
+            ))}
+            {q && <Chip label={`"${q}"`} onClear={() => patch({ q: undefined })} />}
+            {budget && <Chip label={budget} onClear={() => patch({ budget: undefined })} />}
+            {(price[0] !== PRICE_MIN || price[1] !== PRICE_MAX) && (
+              <Chip
+                label={`${formatPrice(price[0])}–${formatPrice(price[1])}`}
+                onClear={() =>
+                  patch({ priceMin: undefined, priceMax: undefined, budget: undefined })
+                }
+              />
+            )}
+            {(year[0] !== YEAR_MIN || year[1] !== YEAR_MAX) && (
+              <Chip
+                label={`${year[0]}–${year[1]}`}
+                onClear={() => patch({ yearMin: undefined, yearMax: undefined })}
+              />
+            )}
+            {(km[0] !== KM_MIN || km[1] !== KM_MAX) && (
+              <Chip
+                label={`${km[0].toLocaleString("en-IN")}–${km[1].toLocaleString("en-IN")} km`}
+                onClear={() => patch({ kmMin: undefined, kmMax: undefined })}
+              />
+            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => nav({ search: {}, resetScroll: false, replace: true })}
+            >
+              <X className="mr-1 h-3 w-3" /> Clear all
+            </Button>
+          </div>
+        )}
+      </div>
 
       <div className="mb-4 flex items-center justify-end">
         <Button
@@ -480,14 +515,28 @@ function FilterGroup({
   options,
   values,
   onChange,
+  pinned,
 }: {
   title: string;
   options: string[];
   values: string[];
   onChange: (v: string[]) => void;
+  /** Rendered above a divider — the highest-volume options. */
+  pinned?: readonly string[];
 }) {
   const toggle = (o: string) =>
     onChange(values.includes(o) ? values.filter((x) => x !== o) : [...values, o]);
+
+  const pinnedPresent = (pinned ?? []).filter((p) => options.includes(p));
+  const rest = options.filter((o) => !pinnedPresent.includes(o));
+
+  const Option = ({ o }: { o: string }) => (
+    <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+      <Checkbox checked={values.includes(o)} onCheckedChange={() => toggle(o)} />
+      <span>{o}</span>
+    </label>
+  );
+
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
@@ -502,16 +551,63 @@ function FilterGroup({
         )}
       </div>
       <div className="max-h-44 space-y-1.5 overflow-y-auto pr-1">
-        {options.map((o) => (
-          <label
-            key={o}
-            className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <Checkbox checked={values.includes(o)} onCheckedChange={() => toggle(o)} />
-            <span>{o}</span>
-          </label>
+        {pinnedPresent.map((o) => (
+          <Option key={o} o={o} />
+        ))}
+        {pinnedPresent.length > 0 && rest.length > 0 && (
+          <div className="my-1.5 border-t border-border/60" />
+        )}
+        {rest.map((o) => (
+          <Option key={o} o={o} />
         ))}
       </div>
+    </div>
+  );
+}
+
+/**
+ * Range slider whose value is local while dragging and only written to the URL
+ * on release. Dragging used to navigate on every pixel, which re-rendered the
+ * results and made the page jump under the cursor.
+ */
+function RangeFilter({
+  label,
+  min,
+  max,
+  step,
+  value,
+  format,
+  onCommit,
+}: {
+  label: string;
+  min: number;
+  max: number;
+  step: number;
+  value: [number, number];
+  format: (v: [number, number]) => string;
+  onCommit: (v: [number, number]) => void;
+}) {
+  const [local, setLocal] = useState<[number, number]>(value);
+
+  // Keep in step with external changes (chip removal, "Clear all", back/forward).
+  useEffect(() => {
+    setLocal(value);
+  }, [value[0], value[1]]);
+
+  return (
+    <div>
+      <div className="mb-2 flex justify-between text-sm font-medium">
+        <span>{label}</span>
+        <span className="text-muted-foreground">{format(local)}</span>
+      </div>
+      <Slider
+        min={min}
+        max={max}
+        step={step}
+        value={local}
+        onValueChange={(v) => setLocal([v[0], v[1]])}
+        onValueCommit={(v) => onCommit([v[0], v[1]])}
+      />
     </div>
   );
 }

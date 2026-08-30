@@ -24,7 +24,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { user, theme, setTheme, logout, resetData } = useApp();
+  const { user, theme, resolvedTheme, setTheme, logout, resetData } = useApp();
   const [emailUpdates, setEmailUpdates] = useState(true);
   const [priceDrops, setPriceDrops] = useState(true);
   const [smsAlerts, setSmsAlerts] = useState(false);
@@ -40,7 +40,7 @@ function SettingsPage() {
       {/* Appearance */}
       <Section icon={Palette} title="Appearance">
         <p className="mb-3 text-sm text-muted-foreground">
-          Light mode is the default. Switch to dark any time — your choice is saved on this device.
+          Choose light, dark, or follow your device. Your choice is saved on this device.
         </p>
         <div className="grid grid-cols-3 gap-3">
           <ThemeOption
@@ -55,17 +55,14 @@ function SettingsPage() {
             icon={Moon}
             label="Dark"
           />
+          {/* "System" stays selected and keeps tracking the OS setting, rather
+              than resolving once and reverting to a fixed choice. */}
           <ThemeOption
-            active={false}
-            onClick={() => {
-              const prefersDark =
-                typeof window !== "undefined" &&
-                window.matchMedia("(prefers-color-scheme: dark)").matches;
-              setTheme(prefersDark ? "dark" : "light");
-              toast.success(`Matched system: ${prefersDark ? "dark" : "light"}`);
-            }}
+            active={theme === "system"}
+            onClick={() => setTheme("system")}
             icon={Monitor}
             label="System"
+            hint={`currently ${resolvedTheme}`}
           />
         </div>
       </Section>
@@ -201,20 +198,24 @@ function ThemeOption({
   onClick,
   icon: Icon,
   label,
+  hint,
 }: {
   active: boolean;
   onClick: () => void;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  hint?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-center gap-2 rounded-xl border p-4 transition ${active ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/40"}`}
+      aria-pressed={active}
+      className={`flex flex-col items-center gap-1.5 rounded-xl border p-4 transition ${active ? "border-primary bg-primary/5" : "border-border/60 hover:border-primary/40"}`}
     >
       <Icon className={`h-5 w-5 ${active ? "text-primary" : "text-muted-foreground"}`} />
       <span className="text-sm font-medium">{label}</span>
+      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </button>
   );
 }

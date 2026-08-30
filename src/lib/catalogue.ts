@@ -1,0 +1,1082 @@
+// ---------------------------------------------------------------------------
+// Vehicle catalogue — brand → model → variant, with real specifications.
+//
+// Why this exists: the vehicle detail page used to render hardcoded engine,
+// performance and dimension figures (1998 cc / 190 bhp / 320 Nm / 455 L boot)
+// identical for every listing, and sellers typed model + variant as free text.
+// Specs now come from here, selected by the seller and stored on the listing.
+//
+// Coverage is India-market focused. It is deliberately data-only and additive:
+// to support a new car, add an entry — no component changes are needed. Figures
+// are manufacturer-claimed for the most common trims; where a model spans
+// several generations the current-generation figures are used, so treat them as
+// indicative and let admins override per listing.
+// ---------------------------------------------------------------------------
+
+export type DriveTrain = "FWD" | "RWD" | "AWD" | "4WD";
+
+export interface VariantSpec {
+  name: string;
+  fuelType: string;
+  transmission: string;
+  /** 0 for battery-electric vehicles. */
+  displacementCc: number;
+  maxPowerBhp: number;
+  /** 0 when not applicable (electric motors quote a range). */
+  maxPowerRpm: number;
+  maxTorqueNm: number;
+  maxTorqueRpm: number;
+  driveTrain: DriveTrain;
+  /** ARAI/claimed km per litre. Undefined for electric. */
+  mileageKmpl?: number;
+  airbags: number;
+}
+
+export interface ModelSpec {
+  model: string;
+  bodyType: string;
+  seating: number;
+  bootSpaceL?: number;
+  /** Undefined for battery-electric vehicles. */
+  fuelTankL?: number;
+  /** [length, width, height, wheelbase, groundClearance] in mm. */
+  dims: [number, number, number, number, number];
+  variants: VariantSpec[];
+}
+
+/**
+ * Compact variant builder. Argument order:
+ * name, fuel, gearbox, cc, bhp, bhp@rpm, Nm, Nm@rpm, drivetrain, kmpl?, airbags?
+ *
+ * Editors surface the parameter names on hover, which keeps the data tables
+ * below scannable without one sprawling object literal per trim.
+ */
+function v(
+  name: string,
+  fuelType: string,
+  transmission: string,
+  displacementCc: number,
+  maxPowerBhp: number,
+  maxPowerRpm: number,
+  maxTorqueNm: number,
+  maxTorqueRpm: number,
+  driveTrain: DriveTrain,
+  mileageKmpl?: number,
+  airbags = 6,
+): VariantSpec {
+  return {
+    name,
+    fuelType,
+    transmission,
+    displacementCc,
+    maxPowerBhp,
+    maxPowerRpm,
+    maxTorqueNm,
+    maxTorqueRpm,
+    driveTrain,
+    mileageKmpl,
+    airbags,
+  };
+}
+
+const MARUTI_SUZUKI: ModelSpec[] = [
+  {
+    model: "Swift",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 265,
+    fuelTankL: 37,
+    dims: [3860, 1735, 1520, 2450, 163],
+    variants: [
+      v("1.2 VXi MT", "Petrol", "Manual", 1197, 80, 5700, 112, 4300, "FWD", 24.8),
+      v("1.2 ZXi AMT", "Petrol", "AMT", 1197, 80, 5700, 112, 4300, "FWD", 25.75),
+    ],
+  },
+  {
+    model: "Baleno",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 318,
+    fuelTankL: 37,
+    dims: [3990, 1745, 1500, 2520, 170],
+    variants: [
+      v("1.2 DualJet Delta MT", "Petrol", "Manual", 1197, 89, 6000, 113, 4400, "FWD", 22.35),
+      v("1.2 DualJet Alpha AMT", "Petrol", "AMT", 1197, 89, 6000, 113, 4400, "FWD", 22.94),
+    ],
+  },
+  {
+    model: "Dzire",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 382,
+    fuelTankL: 37,
+    dims: [3995, 1735, 1525, 2450, 163],
+    variants: [
+      v("1.2 VXi MT", "Petrol", "Manual", 1197, 80, 5700, 112, 4300, "FWD", 24.79),
+      v("1.2 ZXi+ AMT", "Petrol", "AMT", 1197, 80, 5700, 112, 4300, "FWD", 25.71),
+    ],
+  },
+  {
+    model: "Brezza",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 328,
+    fuelTankL: 48,
+    dims: [3995, 1790, 1685, 2500, 198],
+    variants: [
+      v("1.5 VXi MT", "Petrol", "Manual", 1462, 102, 6000, 137, 4400, "FWD", 17.38),
+      v("1.5 ZXi+ AT", "Petrol", "Automatic", 1462, 102, 6000, 137, 4400, "FWD", 19.8),
+      v("1.5 CNG VXi", "CNG", "Manual", 1462, 87, 5500, 121, 4200, "FWD", 25.51),
+    ],
+  },
+  {
+    model: "Grand Vitara",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 373,
+    fuelTankL: 45,
+    dims: [4345, 1795, 1645, 2600, 210],
+    variants: [
+      v("1.5 Smart Hybrid Delta MT", "Petrol", "Manual", 1462, 102, 6000, 137, 4400, "FWD", 21.11),
+      v("1.5 Strong Hybrid Zeta+", "Hybrid", "Automatic", 1490, 91, 5500, 122, 4400, "FWD", 27.97),
+      v("1.5 AllGrip Alpha MT", "Petrol", "Manual", 1462, 102, 6000, 137, 4400, "AWD", 19.38),
+    ],
+  },
+  {
+    model: "Fronx",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 308,
+    fuelTankL: 37,
+    dims: [3995, 1765, 1550, 2520, 190],
+    variants: [
+      v("1.2 Sigma MT", "Petrol", "Manual", 1197, 89, 6000, 113, 4400, "FWD", 21.79),
+      v("1.0 Boosterjet Zeta AT", "Petrol", "Automatic", 998, 99, 5500, 148, 2000, "FWD", 21.5),
+    ],
+  },
+  {
+    model: "Ertiga",
+    bodyType: "MUV/MPV",
+    seating: 7,
+    bootSpaceL: 209,
+    fuelTankL: 45,
+    dims: [4395, 1735, 1690, 2740, 180],
+    variants: [
+      v("1.5 VXi MT", "Petrol", "Manual", 1462, 102, 6000, 137, 4400, "FWD", 20.51),
+      v("1.5 ZXi+ AT", "Petrol", "Automatic", 1462, 102, 6000, 137, 4400, "FWD", 20.3),
+      v("1.5 CNG VXi", "CNG", "Manual", 1462, 87, 5500, 121, 4200, "FWD", 26.11),
+    ],
+  },
+  {
+    model: "XL6",
+    bodyType: "MUV/MPV",
+    seating: 6,
+    bootSpaceL: 209,
+    fuelTankL: 45,
+    dims: [4445, 1775, 1755, 2740, 180],
+    variants: [
+      v("1.5 Zeta MT", "Petrol", "Manual", 1462, 102, 6000, 137, 4400, "FWD", 20.97),
+      v("1.5 Alpha AT", "Petrol", "Automatic", 1462, 102, 6000, 137, 4400, "FWD", 20.27),
+    ],
+  },
+  {
+    model: "Wagon R",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 341,
+    fuelTankL: 32,
+    dims: [3655, 1620, 1675, 2435, 165],
+    variants: [
+      v("1.0 LXi MT", "Petrol", "Manual", 998, 66, 5500, 89, 3500, "FWD", 24.35, 2),
+      v("1.2 ZXi AMT", "Petrol", "AMT", 1197, 89, 6000, 113, 4400, "FWD", 24.43, 2),
+    ],
+  },
+  {
+    model: "Alto K10",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 214,
+    fuelTankL: 27,
+    dims: [3530, 1490, 1520, 2380, 160],
+    variants: [
+      v("1.0 VXi MT", "Petrol", "Manual", 998, 66, 5500, 89, 3500, "FWD", 24.39, 2),
+      v("1.0 VXi+ AGS", "Petrol", "AMT", 998, 66, 5500, 89, 3500, "FWD", 24.9, 2),
+    ],
+  },
+  {
+    model: "Ciaz",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 510,
+    fuelTankL: 43,
+    dims: [4490, 1730, 1485, 2650, 170],
+    variants: [
+      v("1.5 Delta MT", "Petrol", "Manual", 1462, 103, 6000, 138, 4400, "FWD", 20.65, 2),
+      v("1.5 Alpha AT", "Petrol", "Automatic", 1462, 103, 6000, 138, 4400, "FWD", 20.04, 2),
+    ],
+  },
+  {
+    model: "Jimny",
+    bodyType: "SUV",
+    seating: 4,
+    bootSpaceL: 208,
+    fuelTankL: 40,
+    dims: [3985, 1645, 1720, 2590, 210],
+    variants: [
+      v("1.5 Zeta AllGrip MT", "Petrol", "Manual", 1462, 104, 6000, 134, 4000, "4WD", 16.39),
+      v("1.5 Alpha AllGrip AT", "Petrol", "Automatic", 1462, 104, 6000, 134, 4000, "4WD", 16.94),
+    ],
+  },
+];
+
+const HYUNDAI: ModelSpec[] = [
+  {
+    model: "Venue",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 350,
+    fuelTankL: 45,
+    dims: [3995, 1770, 1617, 2500, 195],
+    variants: [
+      v("1.2 Kappa E MT", "Petrol", "Manual", 1197, 82, 6000, 114, 4000, "FWD", 17.52),
+      v("1.0 Turbo GDi SX MT", "Petrol", "Manual", 998, 118, 6000, 172, 1500, "FWD", 18.15),
+      v("1.0 Turbo GDi SX(O) DCT", "Petrol", "DCT", 998, 118, 6000, 172, 1500, "FWD", 18.05),
+      v("1.5 CRDi SX MT", "Diesel", "Manual", 1493, 114, 4000, 250, 1500, "FWD", 23.4),
+    ],
+  },
+  {
+    model: "Creta",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 433,
+    fuelTankL: 50,
+    dims: [4330, 1790, 1635, 2610, 190],
+    variants: [
+      v("1.5 MPi E MT", "Petrol", "Manual", 1497, 113, 6300, 144, 4500, "FWD", 17.4),
+      v("1.5 MPi SX IVT", "Petrol", "CVT", 1497, 113, 6300, 144, 4500, "FWD", 17.7),
+      v("1.5 Turbo GDi N Line DCT", "Petrol", "DCT", 1482, 158, 5500, 253, 1500, "FWD", 18.0),
+      v("1.5 CRDi SX(O) AT", "Diesel", "Automatic", 1493, 114, 4000, 250, 1500, "FWD", 21.8),
+    ],
+  },
+  {
+    model: "i20",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 311,
+    fuelTankL: 37,
+    dims: [3995, 1775, 1505, 2580, 170],
+    variants: [
+      v("1.2 Kappa Magna MT", "Petrol", "Manual", 1197, 82, 6000, 114, 4000, "FWD", 20.35),
+      v("1.2 Kappa Asta IVT", "Petrol", "CVT", 1197, 87, 6000, 115, 4200, "FWD", 19.65),
+      v("1.0 Turbo GDi N Line DCT", "Petrol", "DCT", 998, 118, 6000, 172, 1500, "FWD", 20.0),
+    ],
+  },
+  {
+    model: "Verna",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 528,
+    fuelTankL: 45,
+    dims: [4535, 1765, 1475, 2670, 165],
+    variants: [
+      v("1.5 MPi EX MT", "Petrol", "Manual", 1497, 113, 6300, 144, 4500, "FWD", 18.6),
+      v("1.5 MPi SX IVT", "Petrol", "CVT", 1497, 113, 6300, 144, 4500, "FWD", 19.6),
+      v("1.5 Turbo GDi SX(O) DCT", "Petrol", "DCT", 1482, 158, 5500, 253, 1500, "FWD", 20.0),
+    ],
+  },
+  {
+    model: "Exter",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 391,
+    fuelTankL: 37,
+    dims: [3815, 1710, 1631, 2450, 185],
+    variants: [
+      v("1.2 Kappa S MT", "Petrol", "Manual", 1197, 82, 6000, 114, 4000, "FWD", 19.4),
+      v("1.2 Kappa SX AMT", "Petrol", "AMT", 1197, 82, 6000, 114, 4000, "FWD", 19.2),
+      v("1.2 CNG S", "CNG", "Manual", 1197, 68, 6000, 95, 4000, "FWD", 27.1),
+    ],
+  },
+  {
+    model: "Alcazar",
+    bodyType: "MUV/MPV",
+    seating: 7,
+    bootSpaceL: 180,
+    fuelTankL: 50,
+    dims: [4560, 1800, 1710, 2760, 200],
+    variants: [
+      v("1.5 Turbo GDi Prestige DCT", "Petrol", "DCT", 1482, 158, 5500, 253, 1500, "FWD", 17.5),
+      v("1.5 CRDi Signature AT", "Diesel", "Automatic", 1493, 114, 4000, 250, 1500, "FWD", 20.4),
+    ],
+  },
+  {
+    model: "Tucson",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 539,
+    fuelTankL: 54,
+    dims: [4630, 1865, 1665, 2755, 180],
+    variants: [
+      v("2.0 MPi Platinum AT", "Petrol", "Automatic", 1999, 154, 6200, 192, 4000, "FWD", 12.95),
+      v("2.0 CRDi Signature AWD AT", "Diesel", "Automatic", 1995, 186, 4000, 416, 2000, "AWD", 18.0),
+    ],
+  },
+  {
+    model: "Ioniq 5",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 527,
+    dims: [4635, 1890, 1625, 3000, 163],
+    variants: [
+      v("72.6 kWh RWD", "Electric", "Automatic", 0, 214, 0, 350, 0, "RWD"),
+      v("72.6 kWh Limited AWD", "Electric", "Automatic", 0, 302, 0, 605, 0, "AWD"),
+    ],
+  },
+];
+
+const TATA: ModelSpec[] = [
+  {
+    model: "Nexon",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 382,
+    fuelTankL: 44,
+    dims: [3995, 1804, 1620, 2498, 208],
+    variants: [
+      v("1.2 Revotron Smart MT", "Petrol", "Manual", 1199, 118, 5500, 170, 1750, "FWD", 17.44),
+      v("1.2 Revotron Fearless DCA", "Petrol", "DCT", 1199, 118, 5500, 170, 1750, "FWD", 17.44),
+      v("1.5 Revotorq Creative MT", "Diesel", "Manual", 1497, 113, 3750, 260, 1500, "FWD", 23.23),
+    ],
+  },
+  {
+    model: "Punch",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 366,
+    fuelTankL: 37,
+    dims: [3827, 1742, 1615, 2445, 187],
+    variants: [
+      v("1.2 Revotron Pure MT", "Petrol", "Manual", 1199, 87, 6000, 115, 3250, "FWD", 20.09),
+      v("1.2 Revotron Creative AMT", "Petrol", "AMT", 1199, 87, 6000, 115, 3250, "FWD", 18.8),
+      v("1.2 CNG Adventure", "CNG", "Manual", 1199, 72, 6000, 103, 3250, "FWD", 26.99),
+    ],
+  },
+  {
+    model: "Harrier",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 445,
+    fuelTankL: 50,
+    dims: [4605, 1922, 1718, 2741, 205],
+    variants: [
+      v("2.0 Kryotec Smart MT", "Diesel", "Manual", 1956, 168, 3750, 350, 1750, "FWD", 16.8),
+      v("2.0 Kryotec Fearless+ AT", "Diesel", "Automatic", 1956, 168, 3750, 350, 1750, "FWD", 14.6),
+    ],
+  },
+  {
+    model: "Safari",
+    bodyType: "SUV",
+    seating: 7,
+    bootSpaceL: 447,
+    fuelTankL: 50,
+    dims: [4668, 1922, 1795, 2741, 205],
+    variants: [
+      v("2.0 Kryotec Smart MT", "Diesel", "Manual", 1956, 168, 3750, 350, 1750, "FWD", 16.3),
+      v("2.0 Kryotec Accomplished AT", "Diesel", "Automatic", 1956, 168, 3750, 350, 1750, "FWD", 14.5),
+    ],
+  },
+  {
+    model: "Altroz",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 345,
+    fuelTankL: 37,
+    dims: [3990, 1755, 1523, 2501, 165],
+    variants: [
+      v("1.2 Revotron XM MT", "Petrol", "Manual", 1199, 87, 6000, 115, 3250, "FWD", 19.33),
+      v("1.5 Revotorq XZ MT", "Diesel", "Manual", 1497, 89, 4000, 200, 1500, "FWD", 23.64),
+    ],
+  },
+  {
+    model: "Tiago",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 242,
+    fuelTankL: 35,
+    dims: [3765, 1677, 1535, 2400, 168],
+    variants: [
+      v("1.2 Revotron XM MT", "Petrol", "Manual", 1199, 85, 6000, 113, 3300, "FWD", 19.0, 2),
+      v("1.2 Revotron XZ+ AMT", "Petrol", "AMT", 1199, 85, 6000, 113, 3300, "FWD", 19.01, 2),
+    ],
+  },
+  {
+    model: "Curvv",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 500,
+    fuelTankL: 45,
+    dims: [4308, 1810, 1637, 2560, 208],
+    variants: [
+      v("1.2 Hyperion Creative MT", "Petrol", "Manual", 1199, 123, 5500, 225, 1750, "FWD", 17.0),
+      v("1.5 Kryojet Accomplished AT", "Diesel", "Automatic", 1497, 116, 3750, 260, 1500, "FWD", 18.0),
+    ],
+  },
+];
+
+const MAHINDRA: ModelSpec[] = [
+  {
+    model: "XUV700",
+    bodyType: "SUV",
+    seating: 7,
+    bootSpaceL: 240,
+    fuelTankL: 60,
+    dims: [4695, 1890, 1755, 2750, 200],
+    variants: [
+      v("2.0 mStallion MX MT", "Petrol", "Manual", 1997, 197, 5000, 380, 1750, "FWD", 13.0),
+      v("2.2 mHawk AX7 AT", "Diesel", "Automatic", 2184, 182, 3500, 450, 1750, "FWD", 16.57),
+      v("2.2 mHawk AX7 L AWD AT", "Diesel", "Automatic", 2184, 182, 3500, 450, 1750, "AWD", 15.0),
+    ],
+  },
+  {
+    model: "Scorpio-N",
+    bodyType: "SUV",
+    seating: 7,
+    bootSpaceL: 460,
+    fuelTankL: 57,
+    dims: [4662, 1917, 1857, 2750, 187],
+    variants: [
+      v("2.0 mStallion Z4 MT", "Petrol", "Manual", 1997, 200, 5000, 380, 1750, "RWD", 12.0),
+      v("2.2 mHawk Z8 L AT", "Diesel", "Automatic", 2184, 172, 3500, 400, 1750, "RWD", 15.0),
+      v("2.2 mHawk Z8 L 4XPLOR AT", "Diesel", "Automatic", 2184, 172, 3500, 400, 1750, "4WD", 14.0),
+    ],
+  },
+  {
+    model: "Thar",
+    bodyType: "SUV",
+    seating: 4,
+    bootSpaceL: 210,
+    fuelTankL: 57,
+    dims: [3985, 1855, 1844, 2450, 226],
+    variants: [
+      v("2.0 mStallion LX 4WD AT", "Petrol", "Automatic", 1997, 150, 5000, 320, 1500, "4WD", 12.0, 2),
+      v("2.2 mHawk LX 4WD MT", "Diesel", "Manual", 2184, 130, 3750, 300, 1600, "4WD", 15.2, 2),
+      v("1.5 Diesel AX(O) RWD MT", "Diesel", "Manual", 1497, 117, 3750, 300, 1750, "RWD", 16.0, 2),
+    ],
+  },
+  {
+    model: "XUV 3XO",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 364,
+    fuelTankL: 42,
+    dims: [3990, 1821, 1647, 2600, 201],
+    variants: [
+      v("1.2 TGDi MX3 MT", "Petrol", "Manual", 1197, 129, 5000, 230, 1500, "FWD", 18.89),
+      v("1.5 Diesel AX7 L AT", "Diesel", "Automatic", 1497, 117, 3750, 300, 1750, "FWD", 18.2),
+    ],
+  },
+  {
+    model: "Bolero",
+    bodyType: "SUV",
+    seating: 7,
+    fuelTankL: 60,
+    dims: [3995, 1745, 1880, 2680, 180],
+    variants: [
+      v("1.5 mHawk B6 MT", "Diesel", "Manual", 1493, 75, 3600, 210, 1600, "RWD", 16.0, 2),
+    ],
+  },
+];
+
+const TOYOTA: ModelSpec[] = [
+  {
+    model: "Innova Crysta",
+    bodyType: "MUV/MPV",
+    seating: 7,
+    bootSpaceL: 300,
+    fuelTankL: 55,
+    dims: [4755, 1830, 1795, 2750, 178],
+    variants: [
+      v("2.4 GX MT", "Diesel", "Manual", 2393, 148, 3400, 343, 1400, "RWD", 14.0, 3),
+      v("2.4 ZX AT", "Diesel", "Automatic", 2393, 148, 3400, 343, 1400, "RWD", 12.9, 7),
+    ],
+  },
+  {
+    model: "Innova Hycross",
+    bodyType: "MUV/MPV",
+    seating: 7,
+    bootSpaceL: 300,
+    fuelTankL: 52,
+    dims: [4755, 1850, 1795, 2850, 185],
+    variants: [
+      v("2.0 G-SLF CVT", "Petrol", "CVT", 1987, 172, 6600, 205, 4400, "FWD", 16.13),
+      v("2.0 Hybrid ZX(O) e-CVT", "Hybrid", "CVT", 1987, 184, 6000, 188, 4400, "FWD", 23.24),
+    ],
+  },
+  {
+    model: "Urban Cruiser Hyryder",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 373,
+    fuelTankL: 45,
+    dims: [4365, 1795, 1645, 2600, 210],
+    variants: [
+      v("1.5 Neo Drive S MT", "Petrol", "Manual", 1462, 102, 6000, 137, 4400, "FWD", 21.12),
+      v("1.5 Hybrid V e-CVT", "Hybrid", "CVT", 1490, 91, 5500, 122, 4400, "FWD", 27.97),
+      v("1.5 Neo Drive AWD V MT", "Petrol", "Manual", 1462, 102, 6000, 137, 4400, "AWD", 19.39),
+    ],
+  },
+  {
+    model: "Fortuner",
+    bodyType: "SUV",
+    seating: 7,
+    bootSpaceL: 296,
+    fuelTankL: 80,
+    dims: [4795, 1855, 1835, 2745, 225],
+    variants: [
+      v("2.7 Petrol AT", "Petrol", "Automatic", 2694, 164, 5200, 245, 4000, "RWD", 10.0, 7),
+      v("2.8 Diesel 4x2 AT", "Diesel", "Automatic", 2755, 201, 3000, 500, 1600, "RWD", 14.6, 7),
+      v("2.8 Legender 4x4 AT", "Diesel", "Automatic", 2755, 201, 3000, 500, 1600, "4WD", 12.5, 7),
+    ],
+  },
+  {
+    model: "Glanza",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 318,
+    fuelTankL: 37,
+    dims: [3990, 1745, 1500, 2520, 170],
+    variants: [
+      v("1.2 E MT", "Petrol", "Manual", 1197, 89, 6000, 113, 4400, "FWD", 22.35),
+      v("1.2 V AMT", "Petrol", "AMT", 1197, 89, 6000, 113, 4400, "FWD", 22.94),
+    ],
+  },
+  {
+    model: "Camry",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 524,
+    fuelTankL: 50,
+    dims: [4885, 1840, 1445, 2825, 145],
+    variants: [
+      v("2.5 Hybrid e-CVT", "Hybrid", "CVT", 2487, 227, 5700, 221, 3600, "FWD", 25.49, 9),
+    ],
+  },
+];
+
+const HONDA: ModelSpec[] = [
+  {
+    model: "City",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 506,
+    fuelTankL: 40,
+    dims: [4580, 1748, 1489, 2600, 165],
+    variants: [
+      v("1.5 i-VTEC V MT", "Petrol", "Manual", 1498, 119, 6600, 145, 4300, "FWD", 17.8),
+      v("1.5 i-VTEC ZX CVT", "Petrol", "CVT", 1498, 119, 6600, 145, 4300, "FWD", 18.4),
+      v("1.5 e:HEV ZX", "Hybrid", "CVT", 1498, 124, 6000, 253, 0, "FWD", 27.26),
+    ],
+  },
+  {
+    model: "Amaze",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 416,
+    fuelTankL: 35,
+    dims: [3995, 1695, 1501, 2470, 170],
+    variants: [
+      v("1.2 i-VTEC S MT", "Petrol", "Manual", 1199, 89, 6000, 110, 4800, "FWD", 18.6, 2),
+      v("1.2 i-VTEC VX CVT", "Petrol", "CVT", 1199, 89, 6000, 110, 4800, "FWD", 18.3, 2),
+    ],
+  },
+  {
+    model: "Elevate",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 458,
+    fuelTankL: 40,
+    dims: [4312, 1790, 1650, 2650, 220],
+    variants: [
+      v("1.5 i-VTEC SV MT", "Petrol", "Manual", 1498, 119, 6600, 145, 4300, "FWD", 15.31),
+      v("1.5 i-VTEC ZX CVT", "Petrol", "CVT", 1498, 119, 6600, 145, 4300, "FWD", 16.92),
+    ],
+  },
+  {
+    model: "Civic",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 430,
+    fuelTankL: 47,
+    dims: [4656, 1799, 1433, 2700, 171],
+    variants: [
+      v("1.8 i-VTEC ZX CVT", "Petrol", "CVT", 1799, 139, 6500, 174, 4300, "FWD", 16.5),
+      v("1.6 i-DTEC ZX MT", "Diesel", "Manual", 1597, 118, 4000, 300, 2000, "FWD", 26.8),
+    ],
+  },
+];
+
+const KIA: ModelSpec[] = [
+  {
+    model: "Seltos",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 433,
+    fuelTankL: 50,
+    dims: [4365, 1800, 1645, 2610, 190],
+    variants: [
+      v("1.5 MPi HTE MT", "Petrol", "Manual", 1497, 113, 6300, 144, 4500, "FWD", 17.0),
+      v("1.5 Turbo GDi GTX+ DCT", "Petrol", "DCT", 1482, 158, 5500, 253, 1500, "FWD", 17.9),
+      v("1.5 CRDi HTX AT", "Diesel", "Automatic", 1493, 114, 4000, 250, 1500, "FWD", 20.7),
+    ],
+  },
+  {
+    model: "Sonet",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 385,
+    fuelTankL: 45,
+    dims: [3995, 1790, 1642, 2500, 205],
+    variants: [
+      v("1.2 MPi HTE MT", "Petrol", "Manual", 1197, 82, 6000, 115, 4200, "FWD", 18.4),
+      v("1.0 Turbo GDi GTX+ DCT", "Petrol", "DCT", 998, 118, 6000, 172, 1500, "FWD", 18.7),
+      v("1.5 CRDi HTX+ AT", "Diesel", "Automatic", 1493, 114, 4000, 250, 1500, "FWD", 22.3),
+    ],
+  },
+  {
+    model: "Carens",
+    bodyType: "MUV/MPV",
+    seating: 7,
+    bootSpaceL: 216,
+    fuelTankL: 45,
+    dims: [4540, 1800, 1708, 2780, 195],
+    variants: [
+      v("1.5 MPi Premium MT", "Petrol", "Manual", 1497, 113, 6300, 144, 4500, "FWD", 16.5),
+      v("1.5 Turbo GDi Luxury+ DCT", "Petrol", "DCT", 1482, 158, 5500, 253, 1500, "FWD", 16.2),
+      v("1.5 CRDi Luxury AT", "Diesel", "Automatic", 1493, 114, 4000, 250, 1500, "FWD", 19.3),
+    ],
+  },
+  {
+    model: "EV6",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 490,
+    dims: [4695, 1890, 1550, 2900, 158],
+    variants: [
+      v("77.4 kWh GT-Line RWD", "Electric", "Automatic", 0, 225, 0, 350, 0, "RWD"),
+      v("77.4 kWh GT-Line AWD", "Electric", "Automatic", 0, 320, 0, 605, 0, "AWD"),
+    ],
+  },
+];
+
+const TESLA: ModelSpec[] = [
+  {
+    model: "Model 3",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 594,
+    dims: [4720, 1849, 1441, 2875, 138],
+    variants: [
+      v("RWD", "Electric", "Automatic", 0, 283, 0, 420, 0, "RWD"),
+      v("Long Range AWD", "Electric", "Automatic", 0, 434, 0, 493, 0, "AWD"),
+      v("Performance AWD", "Electric", "Automatic", 0, 510, 0, 660, 0, "AWD"),
+    ],
+  },
+  {
+    model: "Model Y",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 854,
+    dims: [4751, 1921, 1624, 2890, 167],
+    variants: [
+      v("RWD", "Electric", "Automatic", 0, 295, 0, 420, 0, "RWD"),
+      v("Long Range AWD", "Electric", "Automatic", 0, 378, 0, 493, 0, "AWD"),
+    ],
+  },
+];
+
+const BMW: ModelSpec[] = [
+  {
+    model: "3 Series",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 480,
+    fuelTankL: 59,
+    dims: [4713, 1827, 1440, 2851, 165],
+    variants: [
+      v("320i M Sport", "Petrol", "Automatic", 1998, 181, 5000, 300, 1350, "RWD", 16.13),
+      v("320d Luxury Line", "Diesel", "Automatic", 1995, 188, 4000, 400, 1750, "RWD", 20.37),
+      v("M340i xDrive", "Petrol", "Automatic", 2998, 382, 5800, 500, 1800, "AWD", 12.5),
+    ],
+  },
+  {
+    model: "5 Series",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 520,
+    fuelTankL: 60,
+    dims: [5060, 1900, 1515, 3105, 145],
+    variants: [
+      v("530i M Sport", "Petrol", "Automatic", 1998, 255, 5200, 400, 1600, "RWD", 15.0),
+      v("530d M Sport", "Diesel", "Automatic", 2993, 282, 4000, 620, 2000, "RWD", 18.0),
+    ],
+  },
+  {
+    model: "X1",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 540,
+    fuelTankL: 54,
+    dims: [4500, 1845, 1642, 2692, 183],
+    variants: [
+      v("sDrive18i M Sport", "Petrol", "DCT", 1499, 134, 4600, 230, 1500, "FWD", 16.35),
+      v("sDrive18d xLine", "Diesel", "Automatic", 1995, 148, 4000, 360, 1600, "FWD", 20.37),
+    ],
+  },
+  {
+    model: "X5",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 650,
+    fuelTankL: 80,
+    dims: [4922, 2004, 1745, 2975, 214],
+    variants: [
+      v("xDrive40i M Sport", "Petrol", "Automatic", 2998, 375, 5500, 520, 1850, "AWD", 12.0),
+      v("xDrive30d SportX+", "Diesel", "Automatic", 2993, 282, 4000, 650, 1750, "AWD", 15.0),
+    ],
+  },
+];
+
+const MERCEDES: ModelSpec[] = [
+  {
+    model: "C-Class",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 455,
+    fuelTankL: 66,
+    dims: [4751, 1820, 1438, 2865, 145],
+    variants: [
+      v("C200 AMG Line", "Petrol", "Automatic", 1496, 201, 5800, 300, 1800, "RWD", 15.4),
+      v("C300 AMG Line", "Petrol", "Automatic", 1999, 254, 5800, 400, 2000, "RWD", 14.5),
+      v("C220d AMG Line", "Diesel", "Automatic", 1993, 197, 3600, 440, 1800, "RWD", 20.0),
+    ],
+  },
+  {
+    model: "E-Class",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 540,
+    fuelTankL: 66,
+    dims: [5075, 1880, 1470, 3094, 143],
+    variants: [
+      v("E200 Exclusive", "Petrol", "Automatic", 1999, 201, 5500, 320, 1650, "RWD", 13.0),
+      v("E220d Exclusive", "Diesel", "Automatic", 1993, 194, 3800, 400, 1600, "RWD", 18.0),
+    ],
+  },
+  {
+    model: "GLC",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 620,
+    fuelTankL: 62,
+    dims: [4716, 1890, 1640, 2888, 189],
+    variants: [
+      v("GLC 220d 4MATIC", "Diesel", "Automatic", 1993, 194, 3600, 440, 1800, "AWD", 17.0),
+      v("GLC 300 4MATIC", "Petrol", "Automatic", 1999, 254, 5800, 400, 2000, "AWD", 14.0),
+    ],
+  },
+];
+
+const AUDI: ModelSpec[] = [
+  {
+    model: "A4",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 460,
+    fuelTankL: 54,
+    dims: [4762, 1847, 1428, 2820, 150],
+    variants: [
+      v("35 TFSI Premium Plus", "Petrol", "DCT", 1984, 187, 4200, 320, 1450, "FWD", 17.42),
+      v("40 TFSI Technology", "Petrol", "DCT", 1984, 187, 4200, 320, 1450, "FWD", 17.42),
+    ],
+  },
+  {
+    model: "Q3",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 530,
+    fuelTankL: 58,
+    dims: [4484, 1849, 1616, 2680, 190],
+    variants: [
+      v("40 TFSI Premium Plus quattro", "Petrol", "DCT", 1984, 187, 4200, 320, 1500, "AWD", 14.22),
+    ],
+  },
+  {
+    model: "Q5",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 550,
+    fuelTankL: 70,
+    dims: [4682, 1893, 1663, 2819, 195],
+    variants: [
+      v("45 TFSI Premium Plus quattro", "Petrol", "DCT", 1984, 249, 5000, 370, 1600, "AWD", 12.5),
+    ],
+  },
+];
+
+const PORSCHE: ModelSpec[] = [
+  {
+    model: "Macan",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 488,
+    fuelTankL: 65,
+    dims: [4726, 1922, 1621, 2807, 190],
+    variants: [
+      v("2.0 Turbo", "Petrol", "DCT", 1984, 261, 5000, 400, 1800, "AWD", 11.5),
+      v("S 2.9 V6", "Petrol", "DCT", 2894, 375, 5400, 520, 1800, "AWD", 10.0),
+    ],
+  },
+];
+
+const VOLVO: ModelSpec[] = [
+  {
+    model: "XC60",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 483,
+    fuelTankL: 71,
+    dims: [4708, 1902, 1658, 2865, 216],
+    variants: [
+      v("B5 Ultimate", "Petrol", "Automatic", 1969, 247, 5400, 350, 1800, "AWD", 12.0),
+      v("T8 Recharge", "Hybrid", "Automatic", 1969, 449, 6000, 709, 3000, "AWD", 18.0),
+    ],
+  },
+];
+
+const LEXUS: ModelSpec[] = [
+  {
+    model: "RX 350",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 461,
+    fuelTankL: 65,
+    dims: [4890, 1920, 1695, 2850, 200],
+    variants: [
+      v("350h Luxury", "Hybrid", "CVT", 2487, 246, 6000, 239, 4300, "AWD", 18.5),
+      v("F Sport", "Petrol", "Automatic", 2393, 271, 6000, 430, 1700, "AWD", 12.0),
+    ],
+  },
+];
+
+const VOLKSWAGEN: ModelSpec[] = [
+  {
+    model: "Virtus",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 521,
+    fuelTankL: 45,
+    dims: [4561, 1752, 1507, 2651, 179],
+    variants: [
+      v("1.0 TSI Comfortline MT", "Petrol", "Manual", 999, 114, 5000, 178, 1750, "FWD", 19.4),
+      v("1.5 TSI GT Plus DSG", "Petrol", "DCT", 1498, 148, 5000, 250, 1600, "FWD", 19.62),
+    ],
+  },
+  {
+    model: "Taigun",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 385,
+    fuelTankL: 50,
+    dims: [4221, 1760, 1612, 2651, 188],
+    variants: [
+      v("1.0 TSI Comfortline MT", "Petrol", "Manual", 999, 114, 5000, 178, 1750, "FWD", 19.2),
+      v("1.5 TSI GT DSG", "Petrol", "DCT", 1498, 148, 5000, 250, 1600, "FWD", 18.5),
+    ],
+  },
+  {
+    model: "Golf GTI",
+    bodyType: "Hatchback",
+    seating: 5,
+    bootSpaceL: 374,
+    fuelTankL: 50,
+    dims: [4287, 1789, 1478, 2620, 145],
+    variants: [v("2.0 TSI DSG", "Petrol", "DCT", 1984, 242, 5000, 370, 1600, "FWD", 14.0)],
+  },
+];
+
+const POLESTAR: ModelSpec[] = [
+  {
+    model: "2",
+    bodyType: "Sedan",
+    seating: 5,
+    bootSpaceL: 405,
+    dims: [4606, 1859, 1479, 2735, 151],
+    variants: [
+      v("Long Range Single Motor", "Electric", "Automatic", 0, 295, 0, 490, 0, "RWD"),
+      v("Long Range Dual Motor", "Electric", "Automatic", 0, 421, 0, 740, 0, "AWD"),
+    ],
+  },
+];
+
+const MAZDA: ModelSpec[] = [
+  {
+    model: "CX-5",
+    bodyType: "SUV",
+    seating: 5,
+    bootSpaceL: 442,
+    fuelTankL: 58,
+    dims: [4575, 1845, 1680, 2700, 193],
+    variants: [
+      v("2.5 Signature Turbo", "Petrol", "Automatic", 2488, 227, 5000, 420, 2000, "AWD", 11.5),
+    ],
+  },
+];
+
+const FORD: ModelSpec[] = [
+  {
+    model: "EcoSport",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 352,
+    fuelTankL: 52,
+    dims: [3998, 1765, 1647, 2519, 200],
+    variants: [
+      v("1.5 Titanium MT", "Petrol", "Manual", 1497, 121, 6500, 150, 4500, "FWD", 15.9),
+      v("1.5 TDCi Titanium MT", "Diesel", "Manual", 1498, 99, 3750, 215, 1750, "FWD", 21.7),
+    ],
+  },
+];
+
+const NISSAN: ModelSpec[] = [
+  {
+    model: "Magnite",
+    bodyType: "Compact SUV",
+    seating: 5,
+    bootSpaceL: 336,
+    fuelTankL: 40,
+    dims: [3994, 1758, 1572, 2500, 205],
+    variants: [
+      v("1.0 XL MT", "Petrol", "Manual", 999, 71, 6250, 96, 3500, "FWD", 19.7, 2),
+      v("1.0 Turbo XV Premium CVT", "Petrol", "CVT", 999, 98, 5000, 152, 2200, "FWD", 17.7),
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Registry
+// ---------------------------------------------------------------------------
+
+export const CATALOGUE: Record<string, ModelSpec[]> = {
+  "Maruti Suzuki": MARUTI_SUZUKI,
+  Hyundai: HYUNDAI,
+  Tata: TATA,
+  Mahindra: MAHINDRA,
+  Toyota: TOYOTA,
+  Honda: HONDA,
+  Kia: KIA,
+  Tesla: TESLA,
+  BMW: BMW,
+  "Mercedes-Benz": MERCEDES,
+  Audi: AUDI,
+  Porsche: PORSCHE,
+  Volvo: VOLVO,
+  Lexus: LEXUS,
+  Volkswagen: VOLKSWAGEN,
+  Polestar: POLESTAR,
+  Mazda: MAZDA,
+  Ford: FORD,
+  Nissan: NISSAN,
+};
+
+/**
+ * Highest-volume brands in the Indian market, pinned to the top of pickers and
+ * filters. The remainder is appended alphabetically.
+ */
+export const POPULAR_BRANDS = [
+  "Maruti Suzuki",
+  "Hyundai",
+  "Tata",
+  "Mahindra",
+  "Toyota",
+  "Kia",
+  "Honda",
+] as const;
+
+/** Popular brands first, then everything else A–Z. */
+export const BRANDS_ORDERED: string[] = [
+  ...POPULAR_BRANDS,
+  ...Object.keys(CATALOGUE)
+    .filter((b) => !POPULAR_BRANDS.includes(b as (typeof POPULAR_BRANDS)[number]))
+    .sort((a, b) => a.localeCompare(b)),
+];
+
+// ---------------------------------------------------------------------------
+// Lookups
+// ---------------------------------------------------------------------------
+
+export function modelsFor(brand?: string): ModelSpec[] {
+  if (!brand) return [];
+  return CATALOGUE[brand] ?? [];
+}
+
+export function modelNamesFor(brand?: string): string[] {
+  return modelsFor(brand).map((m) => m.model);
+}
+
+export function findModel(brand?: string, model?: string): ModelSpec | undefined {
+  if (!model) return undefined;
+  return modelsFor(brand).find((m) => m.model === model);
+}
+
+export function variantNamesFor(brand?: string, model?: string): string[] {
+  return findModel(brand, model)?.variants.map((x) => x.name) ?? [];
+}
+
+export function findVariant(
+  brand?: string,
+  model?: string,
+  variant?: string,
+): VariantSpec | undefined {
+  if (!variant) return undefined;
+  return findModel(brand, model)?.variants.find((x) => x.name === variant);
+}
+
+/**
+ * Every spec a listing should carry, resolved from a brand/model/variant triple.
+ * Returns undefined when the triple is not in the catalogue, so callers can fall
+ * back to whatever the seller entered manually.
+ */
+export function resolveSpecs(brand?: string, model?: string, variant?: string) {
+  const m = findModel(brand, model);
+  const vr = findVariant(brand, model, variant);
+  if (!m || !vr) return undefined;
+
+  const [lengthMm, widthMm, heightMm, wheelbaseMm, groundClearanceMm] = m.dims;
+  return {
+    bodyType: m.bodyType,
+    fuelType: vr.fuelType,
+    transmission: vr.transmission,
+    displacementCc: vr.displacementCc,
+    maxPowerBhp: vr.maxPowerBhp,
+    maxPowerRpm: vr.maxPowerRpm,
+    maxTorqueNm: vr.maxTorqueNm,
+    maxTorqueRpm: vr.maxTorqueRpm,
+    driveTrain: vr.driveTrain,
+    mileageKmpl: vr.mileageKmpl,
+    airbags: vr.airbags,
+    seating: m.seating,
+    bootSpaceL: m.bootSpaceL,
+    fuelTankL: m.fuelTankL,
+    groundClearanceMm,
+    lengthMm,
+    widthMm,
+    heightMm,
+    wheelbaseMm,
+  };
+}
+
+/** All body types present in the catalogue, for filter facets. */
+export const CATALOGUE_BODY_TYPES: string[] = [
+  ...new Set(Object.values(CATALOGUE).flatMap((models) => models.map((m) => m.bodyType))),
+].sort();
+

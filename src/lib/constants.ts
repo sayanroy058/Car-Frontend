@@ -1,26 +1,43 @@
-// Constants and utilities extracted from mock-data.ts
-// These are used by the frontend for dropdowns, filters, and calculations.
+// Constants and utilities shared across the frontend.
+// Dropdown/filter option lists now come from the vehicle catalogue and the
+// state/city registry so that a single source feeds forms, filters and specs.
 
-export const BRANDS = [
-  "Tesla", "BMW", "Mercedes-Benz", "Audi", "Porsche",
-  "Toyota", "Honda", "Hyundai", "Kia", "Volkswagen",
-  "Volvo", "Lexus", "Ford", "Mazda", "Nissan", "Polestar",
+import { BRANDS_ORDERED, CATALOGUE_BODY_TYPES } from "./catalogue";
+import { ALL_CITIES, STATES } from "./regions";
+
+/** Popular Indian brands first, then the rest alphabetically. */
+export const BRANDS = BRANDS_ORDERED;
+
+/**
+ * Body types, ordered with the mainstream Indian segments first. Derived from
+ * the catalogue so a new segment appears automatically once a car uses it.
+ */
+const BODY_TYPE_ORDER = [
+  "Hatchback",
+  "Sedan",
+  "Compact SUV",
+  "SUV",
+  "MUV/MPV",
+  "Coupe",
+  "Convertible",
+  "Wagon",
+  "Truck",
 ];
 
-export const BODY_TYPES = ["Sedan", "SUV", "Hatchback", "Coupe", "Convertible", "Wagon", "Truck"];
+export const BODY_TYPES = [
+  ...BODY_TYPE_ORDER.filter((b) => CATALOGUE_BODY_TYPES.includes(b)),
+  ...CATALOGUE_BODY_TYPES.filter((b) => !BODY_TYPE_ORDER.includes(b)),
+  // Retained for older listings created before the catalogue existed.
+  ...BODY_TYPE_ORDER.filter((b) => !CATALOGUE_BODY_TYPES.includes(b)),
+];
+
 export const FUEL_TYPES = ["Petrol", "Diesel", "Electric", "Hybrid", "CNG"];
-export const TRANSMISSIONS = ["Automatic", "Manual", "CVT", "DCT"];
+export const TRANSMISSIONS = ["Manual", "Automatic", "AMT", "CVT", "DCT"];
 export const OWNERSHIP = ["1st Owner", "2nd Owner", "3rd Owner", "4th+ Owner"];
+export const DRIVE_TRAINS = ["FWD", "RWD", "AWD", "4WD"];
 
-export const STATES = [
-  "Maharashtra", "Karnataka", "Delhi", "Tamil Nadu",
-  "Telangana", "Gujarat", "West Bengal", "Haryana",
-];
-
-export const CITIES = [
-  "Mumbai", "Bengaluru", "New Delhi", "Chennai", "Hyderabad",
-  "Ahmedabad", "Kolkata", "Gurugram", "Pune", "Noida",
-];
+export { STATES };
+export const CITIES = ALL_CITIES;
 
 // Fixed identity used for all buyer conversations — buyers chat with the
 // company, not individual sellers.

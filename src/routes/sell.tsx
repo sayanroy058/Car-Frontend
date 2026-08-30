@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -7,36 +7,37 @@ import {
   ArrowRight,
   Camera,
   Check,
+  Info,
   Loader2,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form } from "@/components/ui/form";
 import { Seo } from "@/components/site/Seo";
+import {
+  HighlightPicker,
+  NumberField,
+  SelectField,
+  TextField,
+  TextareaField,
+} from "@/components/site/FormFields";
 import { useApp } from "@/lib/store";
-import { BRANDS, BODY_TYPES, FUEL_TYPES, OWNERSHIP, STATES, TRANSMISSIONS } from "@/lib/constants";
+import {
+  BODY_TYPES,
+  BRANDS,
+  FUEL_TYPES,
+  OWNERSHIP,
+  STATES,
+  TRANSMISSIONS,
+} from "@/lib/constants";
+import { POPULAR_BRANDS, modelNamesFor, resolveSpecs, variantNamesFor } from "@/lib/catalogue";
+import { HIGHLIGHT_OPTIONS } from "@/lib/highlights";
+import { citiesFor, stateFromRegistrationNumber } from "@/lib/regions";
 import { sellSchema, type SellValues } from "@/lib/validations";
 import { uploadImages, createListing, assetUrl } from "@/lib/api";
-import type { Listing } from "@/lib/types";
 
 export const Route = createFileRoute("/sell")({
   component: Sell,
@@ -46,17 +47,19 @@ const STEPS = [
   "Vehicle basics",
   "Specifications",
   "Condition",
+  "Features",
   "Media & docs",
   "Seller details",
 ] as const;
 
 const STEP_FIELDS: string[][] = [
-  ["brand", "model", "bodyType", "year", "registrationYear", "expectedPrice"],
+  ["brand", "model", "variant", "bodyType", "year", "registrationYear", "expectedPrice"],
   [
     "fuelType",
     "transmission",
     "kmDriven",
     "ownership",
+    "registrationNumber",
     "registrationState",
     "registrationCity",
     "vin",
@@ -76,9 +79,69 @@ const STEP_FIELDS: string[][] = [
     "defects",
     "description",
   ],
+  ["highlights"],
   [],
   ["sellerName", "sellerEmail", "sellerPhone", "preferredContactTime", "address"],
 ];
+
+/** Keys are a short pick list rather than a free number field. */
+const KEY_OPTIONS = ["1", "2", "3", "4"];
+
+/**
+ * Read-only summary of the specifications resolved from the selected variant.
+ * Shown so the seller can confirm the figures buyers will see, without being
+ * able to type them by hand.
+ */
+function SpecPreview({ specs }: { specs: NonNullable<ReturnType<typeof resolveSpecs>> }) {
+  const rows: [string, string | number][] = [
+    ["Engine", specs.displacementCc ? `${specs.displacementCc} cc` : "Electric motor"],
+    [
+      "Max power",
+      specs.maxPowerRpm
+        ? `${specs.maxPowerBhp} bhp @ ${specs.maxPowerRpm.toLocaleString("en-IN")} rpm`
+        : `${specs.maxPowerBhp} bhp`,
+    ],
+    [
+      "Max torque",
+      specs.maxTorqueRpm
+        ? `${specs.maxTorqueNm} Nm @ ${specs.maxTorqueRpm.toLocaleString("en-IN")} rpm`
+        : `${specs.maxTorqueNm} Nm`,
+    ],
+    ["Drivetrain", specs.driveTrain],
+    ["Mileage", specs.mileageKmpl ? `${specs.mileageKmpl} kmpl` : "—"],
+    ["Airbags", specs.airbags],
+    ["Seating", `${specs.seating} adults`],
+    ["Boot space", specs.bootSpaceL ? `${specs.bootSpaceL} L` : "—"],
+    ["Fuel tank", specs.fuelTankL ? `${specs.fuelTankL} L` : "—"],
+    ["Ground clearance", `${specs.groundClearanceMm} mm`],
+    [
+      "L × W × H",
+      `${specs.lengthMm.toLocaleString("en-IN")} × ${specs.widthMm.toLocaleString("en-IN")} × ${specs.heightMm.toLocaleString("en-IN")} mm`,
+    ],
+    ["Wheelbase", `${specs.wheelbaseMm.toLocaleString("en-IN")} mm`],
+  ];
+
+  return (
+    <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 md:col-span-2">
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
+        <Info className="h-4 w-4 text-primary" />
+        Specifications for this variant
+      </div>
+      <dl className="grid gap-x-6 gap-y-1.5 text-xs sm:grid-cols-2 lg:grid-cols-3">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex justify-between gap-3">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="font-medium">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Filled in from the manufacturer's figures so buyers see accurate numbers. Our
+        team confirms them during inspection.
+      </p>
+    </div>
+  );
+}
 
 function Sell() {
   const { user, addListing } = useApp();
@@ -93,21 +156,24 @@ function Sell() {
       brand: "",
       model: "",
       variant: "",
-      bodyType: "Sedan",
-      year: 2022,
-      registrationYear: 2022,
-      fuelType: "Petrol",
-      transmission: "Automatic",
-      kmDriven: 25000,
+      bodyType: "",
+      // Numeric fields start empty so the seller types a real value instead of
+      // editing around a pre-filled placeholder.
+      year: undefined,
+      registrationYear: undefined,
+      fuelType: "",
+      transmission: "",
+      kmDriven: undefined,
       ownership: "1st Owner",
-      registrationState: "Maharashtra",
-      registrationCity: "Mumbai",
+      registrationNumber: "",
+      registrationState: "",
+      registrationCity: "",
       vin: "",
       insuranceStatus: "Active",
       roadTaxStatus: "Paid",
       serviceHistory: "Complete dealer history",
       accidentHistory: "No accidents",
-      keys: 2,
+      keys: undefined,
       exteriorCondition: "Excellent",
       interiorCondition: "Excellent",
       engineCondition: "Excellent",
@@ -116,14 +182,67 @@ function Sell() {
       defects: "",
       modifications: "None",
       description: "",
-      expectedPrice: 1500000,
+      highlights: [],
+      expectedPrice: undefined,
       sellerName: user?.name ?? "",
       sellerEmail: user?.email ?? "",
-      sellerPhone: "",
+      sellerPhone: user?.phone ?? "",
       address: "",
       preferredContactTime: "Afternoon (12-5)",
     },
   });
+
+  // ── Dependent catalogue selects ──
+  const brand = form.watch("brand");
+  const model = form.watch("model");
+  const variant = form.watch("variant");
+  const registrationNumber = form.watch("registrationNumber");
+  const registrationState = form.watch("registrationState");
+
+  const models = modelNamesFor(brand);
+  const variants = variantNamesFor(brand, model);
+  const cities = citiesFor(registrationState);
+  const specs = resolveSpecs(brand, model, variant);
+
+  // Clear the downstream selection whenever its parent changes, so a stale
+  // model/variant can never be submitted against a different brand.
+  useEffect(() => {
+    if (model && !modelNamesFor(brand).includes(model)) {
+      form.setValue("model", "", { shouldValidate: false });
+      form.setValue("variant", "", { shouldValidate: false });
+    }
+  }, [brand]);
+
+  useEffect(() => {
+    if (variant && !variantNamesFor(brand, model).includes(variant)) {
+      form.setValue("variant", "", { shouldValidate: false });
+    }
+  }, [brand, model]);
+
+  // Auto-fill body type, fuel, gearbox and every spec from the chosen variant.
+  useEffect(() => {
+    if (!specs) return;
+    form.setValue("bodyType", specs.bodyType, { shouldValidate: false });
+    form.setValue("fuelType", specs.fuelType, { shouldValidate: false });
+    form.setValue("transmission", specs.transmission, { shouldValidate: false });
+  }, [brand, model, variant]);
+
+  // Derive the registering state from the plate, so the seller enters it once.
+  useEffect(() => {
+    const derived = stateFromRegistrationNumber(registrationNumber);
+    if (derived && derived !== registrationState) {
+      form.setValue("registrationState", derived, { shouldValidate: false });
+      form.setValue("registrationCity", "", { shouldValidate: false });
+    }
+  }, [registrationNumber]);
+
+  // Drop a city that does not belong to the selected state.
+  useEffect(() => {
+    const city = form.getValues("registrationCity");
+    if (city && !citiesFor(registrationState).includes(city)) {
+      form.setValue("registrationCity", "", { shouldValidate: false });
+    }
+  }, [registrationState]);
 
   if (!user)
     return (
@@ -172,6 +291,8 @@ function Sell() {
         ];
       }
 
+      const resolved = resolveSpecs(values.brand, values.model, values.variant);
+
       const listingData = {
         sellerId: user!.id,
         sellerName: values.sellerName,
@@ -189,6 +310,7 @@ function Sell() {
         registrationState: values.registrationState,
         registrationCity: values.registrationCity,
         vin: values.vin ?? "",
+        registrationNumber: values.registrationNumber || undefined,
         insuranceStatus: values.insuranceStatus,
         roadTaxStatus: values.roadTaxStatus,
         serviceHistory: values.serviceHistory,
@@ -202,19 +324,42 @@ function Sell() {
         defects: values.defects ?? "",
         modifications: values.modifications ?? "None",
         description: values.description ?? "",
+        highlights: values.highlights ?? [],
         expectedPrice: values.expectedPrice,
         address: values.address ?? "",
         preferredContactTime: values.preferredContactTime,
         bodyType: values.bodyType,
         images: imageUrls,
         status: "pending_review" as const,
+        // Real specs for the chosen variant, replacing the figures the detail
+        // page used to hardcode. Omitted when the car is not in the catalogue.
+        ...(resolved
+          ? {
+              displacementCc: resolved.displacementCc,
+              maxPowerBhp: resolved.maxPowerBhp,
+              maxPowerRpm: resolved.maxPowerRpm,
+              maxTorqueNm: resolved.maxTorqueNm,
+              maxTorqueRpm: resolved.maxTorqueRpm,
+              driveTrain: resolved.driveTrain,
+              mileageKmpl: resolved.mileageKmpl,
+              seating: resolved.seating,
+              bootSpaceL: resolved.bootSpaceL,
+              fuelTankL: resolved.fuelTankL,
+              groundClearanceMm: resolved.groundClearanceMm,
+              lengthMm: resolved.lengthMm,
+              widthMm: resolved.widthMm,
+              heightMm: resolved.heightMm,
+              wheelbaseMm: resolved.wheelbaseMm,
+              airbags: resolved.airbags,
+            }
+          : {}),
       };
       const created = await createListing(listingData);
       addListing(created);
       toast.success("Submission received! Our team will review within 24 hours.");
       nav({ to: "/dashboard" });
-    } catch {
-      toast.error("Failed to upload images. Please try again.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Submission failed. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -258,14 +403,45 @@ function Sell() {
                 name="brand"
                 label="Brand *"
                 options={BRANDS}
+                pinned={POPULAR_BRANDS}
                 placeholder="Choose brand"
               />
-              <TextField name="model" label="Model *" placeholder="e.g. Model 3" />
-              <TextField name="variant" label="Variant" placeholder="e.g. Long Range AWD" />
+              <SelectField
+                name="model"
+                label="Model *"
+                options={models}
+                placeholder="Choose model"
+                disabled={!brand}
+                emptyHint="Select a brand first"
+              />
+              <SelectField
+                name="variant"
+                label="Variant *"
+                options={variants}
+                placeholder="Choose variant"
+                disabled={!model}
+                emptyHint="Select a model first"
+              />
               <SelectField name="bodyType" label="Body type" options={BODY_TYPES} />
-              <NumberField name="year" label="Manufacturing year" />
-              <NumberField name="registrationYear" label="Registration year" />
-              <NumberField name="expectedPrice" label="Expected selling price (₹ INR)" />
+              <NumberField
+                name="year"
+                label="Manufacturing year *"
+                placeholder="e.g. 2022"
+                grouped={false}
+              />
+              <NumberField
+                name="registrationYear"
+                label="Registration year *"
+                placeholder="e.g. 2022"
+                grouped={false}
+              />
+              <NumberField
+                name="expectedPrice"
+                label="Expected selling price *"
+                placeholder="e.g. 8,50,000"
+                suffix="₹"
+              />
+              {specs && <SpecPreview specs={specs} />}
             </div>
           )}
 
@@ -273,10 +449,32 @@ function Sell() {
             <div className="grid gap-4 md:grid-cols-2">
               <SelectField name="fuelType" label="Fuel type" options={FUEL_TYPES} />
               <SelectField name="transmission" label="Transmission" options={TRANSMISSIONS} />
-              <NumberField name="kmDriven" label="Kilometers driven" />
+              <NumberField
+                name="kmDriven"
+                label="Kilometers driven *"
+                placeholder="e.g. 35,000"
+                suffix="km"
+              />
               <SelectField name="ownership" label="Ownership" options={OWNERSHIP} />
-              <SelectField name="registrationState" label="Registration state" options={STATES} />
-              <TextField name="registrationCity" label="Registration city" />
+              <TextField
+                name="registrationNumber"
+                label="Vehicle registration number"
+                placeholder="e.g. MH12AB1234"
+              />
+              <SelectField
+                name="registrationState"
+                label="Registration state *"
+                options={STATES}
+                placeholder="Choose state"
+              />
+              <SelectField
+                name="registrationCity"
+                label="Registration city *"
+                options={cities}
+                placeholder="Choose city"
+                disabled={!registrationState}
+                emptyHint="Select a state first"
+              />
               <TextField name="vin" label="VIN / Chassis number" />
               <SelectField
                 name="insuranceStatus"
@@ -288,7 +486,25 @@ function Sell() {
                 label="Road tax status"
                 options={["Paid", "Pending", "Expired"]}
               />
-              <NumberField name="keys" label="Keys available" />
+              {/* A short pick list, not a free number field — nobody has 47 keys. */}
+              <SelectField
+                name="keys"
+                label="Keys available *"
+                options={KEY_OPTIONS}
+                placeholder="Choose"
+              />
+              {specs?.driveTrain && (
+                <div className="flex flex-col justify-end">
+                  <span className="mb-1.5 text-sm font-medium">Drivetrain</span>
+                  <div className="flex h-9 items-center rounded-md border border-input bg-secondary/40 px-3 text-sm text-muted-foreground">
+                    {specs.driveTrain} — from the selected variant
+                  </div>
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground md:col-span-2">
+                Your registration number is never shown publicly — buyers see a masked
+                version such as MH12 •• 1234 until a booking is confirmed.
+              </p>
             </div>
           )}
 
@@ -350,6 +566,17 @@ function Sell() {
           )}
 
           {step === 3 && (
+            <div className="grid gap-5">
+              <HighlightPicker name="highlights" groups={HIGHLIGHT_OPTIONS} />
+              <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm">
+                <Info className="mr-2 inline h-4 w-4 text-primary" />
+                Only tick features this car genuinely has. Our inspection team verifies
+                them, and unverifiable claims are removed before the listing goes live.
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
             <div className="grid gap-5">
               <div className="rounded-xl border-2 border-dashed border-border bg-secondary/30 p-5">
                 <input
@@ -414,7 +641,7 @@ function Sell() {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="grid gap-4 md:grid-cols-2">
               <TextField name="sellerName" label="Seller name *" />
               <TextField
@@ -462,115 +689,3 @@ function Sell() {
   );
 }
 
-function TextField({
-  name,
-  label,
-  placeholder,
-  type = "text",
-}: {
-  name: keyof SellValues;
-  label: string;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 inline-block">{label}</FormLabel>
-          <FormControl>
-            <Input type={type} placeholder={placeholder} {...field} />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function NumberField({ name, label }: { name: keyof SellValues; label: string }) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 inline-block">{label}</FormLabel>
-          <FormControl>
-            <Input
-              type="number"
-              value={field.value}
-              onChange={(e) => field.onChange(+e.target.value)}
-            />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function TextareaField({
-  name,
-  label,
-  rows = 3,
-  placeholder,
-}: {
-  name: keyof SellValues;
-  label: string;
-  rows?: number;
-  placeholder?: string;
-}) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 inline-block">{label}</FormLabel>
-          <FormControl>
-            <Textarea rows={rows} placeholder={placeholder} {...field} />
-          </FormControl>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}
-
-function SelectField({
-  name,
-  label,
-  options,
-  placeholder,
-}: {
-  name: keyof SellValues;
-  label: string;
-  options: string[];
-  placeholder?: string;
-}) {
-  return (
-    <FormField
-      name={name}
-      render={({ field }) => (
-        <FormItem>
-          <FormLabel className="mb-1.5 inline-block">{label}</FormLabel>
-          <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
-            <FormControl>
-              <SelectTrigger>
-                <SelectValue placeholder={placeholder} />
-              </SelectTrigger>
-            </FormControl>
-            <SelectContent>
-              {options.map((o) => (
-                <SelectItem key={o} value={o}>
-                  {o}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
-}

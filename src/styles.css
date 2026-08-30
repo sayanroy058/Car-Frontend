@@ -133,8 +133,10 @@
   --success-foreground: oklch(0.16 0.02 160);
   --warning: oklch(0.78 0.14 70);
   --warning-foreground: oklch(0.19 0.02 60);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 11%);
+  --border: oklch(1 0 0 / 14%);
+  /* Input borders need more contrast in dark mode than surface borders — at 11%
+     search and form fields were nearly invisible against the background. */
+  --input: oklch(1 0 0 / 24%);
   --ring: oklch(0.7 0.12 185);
   --chart-1: oklch(0.7 0.12 185);
   --chart-2: oklch(0.78 0.13 68);
@@ -147,7 +149,7 @@
   --sidebar-primary-foreground: oklch(0.16 0.02 190);
   --sidebar-accent: oklch(0.27 0.014 190);
   --sidebar-accent-foreground: oklch(0.95 0.008 90);
-  --sidebar-border: oklch(1 0 0 / 9%);
+  --sidebar-border: oklch(1 0 0 / 14%);
   --sidebar-ring: oklch(0.7 0.12 185);
 
   --gradient-hero: linear-gradient(

@@ -27,6 +27,14 @@ import {
   getListings,
   getConversations,
   getBookings,
+  getOffers,
+  getTickets,
+  getReviewsForListings,
+  getWishlist,
+  toggleWishlist as apiToggleWishlist,
+  getSavedSearches,
+  createSavedSearch,
+  removeSavedSearch as apiRemoveSavedSearch,
 } from "./api";
 
 // ---------------------------------------------------------------------------
@@ -39,8 +47,12 @@ interface Persisted {
   wishlist: string[];
   recentlyViewed: string[];
   compare: string[];
-  theme: "light" | "dark";
+  /** "system" follows the OS setting and keeps following it as it changes. */
+  theme: ThemePreference;
 }
+
+/** What the user chose. "system" is resolved against the OS at render time. */
+export type ThemePreference = "light" | "dark" | "system";
 
 export interface StoreSnapshot {
   user: User | null;
@@ -108,7 +120,10 @@ export function getToken(): string | null {
 
 interface AppState extends StoreSnapshot, StoreMutators {
   ready: boolean;
-  theme: "light" | "dark";
+  /** The user's choice, which may be "system". */
+  theme: ThemePreference;
+  /** The theme actually applied right now, after resolving "system". */
+  resolvedTheme: "light" | "dark";
   token: string | null;
   login: (email: string, password: string) => Promise<User>;
   loginAsAdmin: () => Promise<void>;
@@ -119,7 +134,7 @@ interface AppState extends StoreSnapshot, StoreMutators {
   toggleCompare: (id: string) => void;
   clearCompare: () => void;
   markViewed: (id: string) => void;
-  setTheme: (t: "light" | "dark") => void;
+  setTheme: (t: ThemePreference) => void;
   resetData: () => void;
 }
 
@@ -153,7 +168,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
   const [compare, setCompare] = useState<string[]>([]);
-  const [theme, setThemeState] = useState<"light" | "dark">("light");
+  const [theme, setThemeState] = useState<ThemePreference>("light");
+  const [systemDark, setSystemDark] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -182,7 +198,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     _resolveReady();
 
     getListings()
-      .then((data) => setListings(data))
+      .then((data) => {
+        setListings(data);
+        // Reviews were previously never fetched, so seeded and other users'
+        // reviews never appeared anywhere. Load them for the visible inventory
+        // so ratings can surface on cards and the homepage.
+        const visible = data
+          .filter((l) => l.status === "listed" || l.status === "approved")
+          .map((l) => l.id);
+        if (visible.length) {
+          getReviewsForListings(visible)
+            .then(setReviews)
+            .catch((err) => console.error("Failed to load reviews:", err));
+        }
+      })
       .catch((err) => console.error("Failed to load listings:", err));
   }, []);
 
@@ -200,23 +229,61 @@ export function AppProvider({ children }: { children: ReactNode }) {
     savePersisted(data);
   }, [ready, user, token, wishlist, recentlyViewed, compare, theme]);
 
+  // Track the OS colour scheme so the "System" option keeps following it rather
+  // than resolving once at the moment it was clicked.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setSystemDark(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const resolvedTheme: "light" | "dark" =
+    theme === "system" ? (systemDark ? "dark" : "light") : theme;
+
   useEffect(() => {
     if (typeof document === "undefined") return;
-    document.documentElement.classList.toggle("dark", theme === "dark");
-  }, [theme]);
+    document.documentElement.classList.toggle("dark", resolvedTheme === "dark");
+    document.documentElement.style.colorScheme = resolvedTheme;
+  }, [resolvedTheme]);
 
+  // Load everything scoped to the signed-in user. Offers, tickets, the wishlist
+  // and saved searches were previously never fetched — offers and tickets came
+  // only from local optimistic writes, and the wishlist lived solely in
+  // localStorage, so nothing survived a reload or followed the user to another
+  // device.
   useEffect(() => {
     if (!user) {
       setConversations([]);
+      setBookings([]);
+      setOffers([]);
+      setTickets([]);
+      setSavedSearches([]);
       return;
     }
-    const isAdmin = user.role === "admin";
-    getConversations(isAdmin ? undefined : user.id, { all: isAdmin })
-      .then(setConversations)
-      .catch((err) => console.error("Failed to load conversations:", err));
-    getBookings(isAdmin ? undefined : user.id)
-      .then(setBookings)
-      .catch((err) => console.error("Failed to load bookings:", err));
+
+    const report = (what: string) => (err: unknown) =>
+      console.error(`Failed to load ${what}:`, err);
+
+    getConversations().then(setConversations).catch(report("conversations"));
+    getBookings().then(setBookings).catch(report("bookings"));
+    getOffers().then(setOffers).catch(report("offers"));
+    getTickets().then(setTickets).catch(report("tickets"));
+    getSavedSearches().then(setSavedSearches).catch(report("saved searches"));
+    getWishlist()
+      .then((ids) => {
+        // Merge anything wishlisted before signing in, then push the union up.
+        setWishlist((local) => {
+          const merged = [...new Set([...ids, ...local])];
+          for (const id of merged.filter((x) => !ids.includes(x))) {
+            apiToggleWishlist(id).catch(report("wishlist sync"));
+          }
+          return merged;
+        });
+      })
+      .catch(report("wishlist"));
   }, [user?.id, user?.role]);
 
   const mutators = useMemo<StoreMutators>(
@@ -296,7 +363,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setConversations((prev) => [nc, ...prev]);
         startConversation({
           listingId: c.listingId,
-          buyerId: c.buyerId,
           sellerId: c.sellerId,
           sellerName: c.sellerName,
           listingTitle: c.listingTitle,
@@ -329,7 +395,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
               : c,
           ),
         );
-        sendMessage(id, m, "").catch((err) =>
+        sendMessage(id, m).catch((err) =>
           console.error("Failed to send message:", err),
         );
       },
@@ -341,16 +407,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
               : c,
           ),
         );
-        apiMarkConversationRead(id, userId).catch((err) =>
+        apiMarkConversationRead(id).catch((err) =>
           console.error("Failed to mark conversation read:", err),
         );
       },
       addSavedSearch: (s) => {
-        const ns: SavedSearch = { ...s, id: "ss-" + Date.now(), createdAt: Date.now() };
+        const tempId = "ss-" + Date.now();
+        const ns: SavedSearch = { ...s, id: tempId, createdAt: Date.now() };
         setSavedSearches((prev) => [ns, ...prev]);
+        // Persist server-side so saved searches survive a reload and follow the
+        // user across devices.
+        createSavedSearch({ name: s.name, filters: s.filters })
+          .then((saved) =>
+            setSavedSearches((prev) =>
+              prev.map((x) => (x.id === tempId ? saved : x)),
+            ),
+          )
+          .catch((err) => {
+            console.error("Failed to save search:", err);
+            setSavedSearches((prev) => prev.filter((x) => x.id !== tempId));
+          });
       },
-      removeSavedSearch: (id) =>
-        setSavedSearches((prev) => prev.filter((s) => s.id !== id)),
+      removeSavedSearch: (id) => {
+        setSavedSearches((prev) => prev.filter((s) => s.id !== id));
+        apiRemoveSavedSearch(id).catch((err) =>
+          console.error("Failed to remove saved search:", err),
+        );
+      },
     }),
     [],
   );
@@ -397,6 +480,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bookings,
     wishlist,
     theme,
+    resolvedTheme,
     recentlyViewed,
     compare,
     reviews,
@@ -426,14 +510,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     updateProfile(patch) {
       setUser((u) => (u ? { ...u, ...patch } : u));
-      apiUpdateProfile({ name: patch.name, phone: patch.phone }).catch((err) =>
-        console.error("Failed to update profile:", err),
-      );
+      apiUpdateProfile({
+        name: patch.name,
+        phone: patch.phone,
+        avatarUrl: patch.avatarUrl,
+        firmName: patch.firmName,
+        firmLogoUrl: patch.firmLogoUrl,
+      })
+        .then((serverUser) => setUser(serverUser))
+        .catch((err) => console.error("Failed to update profile:", err));
     },
     toggleWishlist(id) {
-      setWishlist((w) =>
-        w.includes(id) ? w.filter((x) => x !== id) : [...w, id],
-      );
+      const wasSaved = wishlist.includes(id);
+      setWishlist((w) => (wasSaved ? w.filter((x) => x !== id) : [...w, id]));
+      // Persist for signed-in users so the wishlist follows them across devices.
+      if (user) {
+        apiToggleWishlist(id).catch((err) => {
+          console.error("Failed to update wishlist:", err);
+          // Roll back so the UI matches the server.
+          setWishlist((w) => (wasSaved ? [...w, id] : w.filter((x) => x !== id)));
+        });
+      }
     },
     toggleCompare(id) {
       setCompare((c) =>

@@ -33,6 +33,11 @@ export interface Listing {
   registrationState: string;
   registrationCity: string;
   vin: string;
+  /**
+   * Indian registration number. Anonymous API callers receive a masked value
+   * (e.g. "MH12 •• 1234"); the full number is returned to the seller and admins.
+   */
+  registrationNumber?: string;
   insuranceStatus: string;
   roadTaxStatus: string;
   serviceHistory: string;
@@ -56,6 +61,37 @@ export interface Listing {
   createdAt: number;
   views?: number;
   featured?: boolean;
+
+  // ── Engine & performance (resolved from the vehicle catalogue) ──
+  displacementCc?: number;
+  maxPowerBhp?: number;
+  maxPowerRpm?: number;
+  maxTorqueNm?: number;
+  maxTorqueRpm?: number;
+  driveTrain?: string;
+  mileageKmpl?: number;
+
+  // ── Dimensions & capacity ──
+  seating?: number;
+  bootSpaceL?: number;
+  fuelTankL?: number;
+  groundClearanceMm?: number;
+  lengthMm?: number;
+  widthMm?: number;
+  heightMm?: number;
+  wheelbaseMm?: number;
+
+  // ── Safety ──
+  airbags?: number;
+
+  /** Seller-declared feature highlights. */
+  highlights?: string[];
+
+  // ── Paid "Assured" promotion (admin-managed) ──
+  assuredPlan?: string;
+  /** Epoch ms; the listing is promoted while this is in the future. */
+  assuredUntil?: number;
+  assuredPaymentId?: string;
 }
 
 export interface User {
@@ -64,6 +100,9 @@ export interface User {
   email: string;
   phone?: string;
   role: "user" | "admin" | "agent";
+  avatarUrl?: string;
+  firmName?: string;
+  firmLogoUrl?: string;
 }
 
 export interface Ticket {

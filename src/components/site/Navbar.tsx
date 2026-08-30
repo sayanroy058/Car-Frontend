@@ -38,7 +38,7 @@ const NAV = [
 ] as const;
 
 export function Navbar() {
-  const { user, logout, theme, setTheme, wishlist, conversations } =
+  const { user, logout, resolvedTheme, setTheme, wishlist, conversations } =
     useApp();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -93,11 +93,11 @@ export function Navbar() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
               aria-label="Toggle theme"
               className="h-9 w-9"
             >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {resolvedTheme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
             <Button
               asChild
@@ -308,17 +308,17 @@ export function Navbar() {
                     </Link>
                     <button
                       onClick={() => {
-                        setTheme(theme === "dark" ? "light" : "dark");
+                        setTheme(resolvedTheme === "dark" ? "light" : "dark");
                       }}
                       className="flex items-center justify-between rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-secondary"
                     >
                       <span className="inline-flex items-center gap-2">
-                        {theme === "dark" ? (
+                        {resolvedTheme === "dark" ? (
                           <Sun className="h-4 w-4" />
                         ) : (
                           <Moon className="h-4 w-4" />
                         )}
-                        {theme === "dark" ? "Light mode" : "Dark mode"}
+                        {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
                       </span>
                     </button>
                     {user ? (

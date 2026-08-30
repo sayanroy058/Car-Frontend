@@ -33,7 +33,7 @@ function ChatThread() {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (conversation && user) markConversationRead(conversation.id, user.id);
+    if (conversation && user) markConversationRead(conversation.id);
   }, [conversation?.id, conversation?.messages.length, user?.id]);
 
   useEffect(() => {
@@ -62,16 +62,12 @@ function ChatThread() {
     setText("");
     setSending(true);
     try {
-      await sendMessage(
-        conversation.id,
-        {
-          senderId: user.id,
-          senderName: user.name,
-          text: msg,
-          mine: true,
-        },
-        conversation.sellerId,
-      );
+      await sendMessage(conversation.id, {
+        senderId: user.id,
+        senderName: user.name,
+        text: msg,
+        mine: true,
+      });
     } catch {
       toast.error("Failed to send message");
       setText(msg);

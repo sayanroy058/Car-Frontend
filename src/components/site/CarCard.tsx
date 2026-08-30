@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, Fuel, GaugeCircle, Heart, MapPin, Settings2, Scale, Star } from "lucide-react";
+import { ArrowRight, BadgeCheck, Fuel, GaugeCircle, Heart, MapPin, Settings2, Scale, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useApp } from "@/lib/store";
@@ -15,6 +15,11 @@ export function formatPriceShort(p: number) {
   if (n >= 10000000) return `₹${(n / 10000000).toFixed(2)} Cr`;
   if (n >= 100000) return `₹${(n / 100000).toFixed(2)} L`;
   return "₹" + new Intl.NumberFormat("en-IN").format(n);
+}
+
+/** A listing is promoted while its paid placement is unexpired. */
+export function isPromoted(l: Listing): boolean {
+  return (l.assuredUntil ?? 0) > Date.now();
 }
 
 export function StatusBadge({ status }: { status: Listing["status"] }) {
@@ -49,6 +54,10 @@ export function CarCard({ listing }: { listing: Listing }) {
   const cmp = compare.includes(listing.id);
   const price = listing.pricing?.finalPrice ?? listing.expectedPrice;
   const listingReviews = reviews.filter((r) => r.listingId === listing.id);
+  const promoted = isPromoted(listing);
+  const rating = listingReviews.length
+    ? listingReviews.reduce((s, r) => s + r.rating, 0) / listingReviews.length
+    : 0;
 
   return (
     <div className="group overflow-hidden rounded-2xl border border-border/60 bg-card transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-primary/40">
@@ -64,10 +73,19 @@ export function CarCard({ listing }: { listing: Listing }) {
           imgClassName="transition-transform duration-700 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent opacity-80 transition-opacity group-hover:opacity-60" />
-        {listing.featured && (
+        {/* Paid placement is labelled explicitly so it is not passed off as an
+            organic result. */}
+        {promoted ? (
           <Badge className="absolute left-3 top-3 border-0 bg-accent text-accent-foreground shadow-lg">
-            Featured
+            <BadgeCheck className="mr-1 h-3 w-3" />
+            Assured · Promoted
           </Badge>
+        ) : (
+          listing.featured && (
+            <Badge className="absolute left-3 top-3 border-0 bg-accent text-accent-foreground shadow-lg">
+              Featured
+            </Badge>
+          )
         )}
         <div className="absolute right-3 top-3 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
           <button
@@ -97,12 +115,15 @@ export function CarCard({ listing }: { listing: Listing }) {
           <div className="rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
             {listing.registrationCity}
           </div>
+          {/* Ratings now render because reviews are actually fetched into the
+              store; previously this branch was unreachable. */}
           {listingReviews.length > 0 && (
             <div className="rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-medium text-white backdrop-blur">
               <Star className="mr-0.5 inline h-3 w-3 fill-warning text-warning" />
-              {(listingReviews.reduce((s, r) => s + r.rating, 0) / listingReviews.length).toFixed(
-                1,
-              )}
+              {rating.toFixed(1)}
+              <span className="ml-1 opacity-80">
+                ({listingReviews.length})
+              </span>
             </div>
           )}
         </div>
