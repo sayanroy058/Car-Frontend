@@ -15,7 +15,7 @@ import { getToken } from "./store";
 // ---------------------------------------------------------------------------
 
 // Live backend API origin (hosted on Hostinger).
-export const API_ORIGIN = "https://khaki-walrus-529693.hostingersite.com";
+export const API_ORIGIN = "https://darkorange-chicken-877448.hostingersite.com";
 const BASE = `${API_ORIGIN}/api`;
 
 /**
